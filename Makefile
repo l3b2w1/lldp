@@ -4,7 +4,7 @@ objs = tlv.o tlv_common.o tx_sm.o lldp_linux_framer.o \
 CCFLAGS= -g -Wall
 
 all:main.o $(objs)
-	gcc -o a.out -g main.o $(objs)
+	gcc -o a.out -g main.o $(objs) $(CCFLAGS)
 
 clean:
 	rm *.o a.out

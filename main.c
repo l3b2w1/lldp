@@ -63,9 +63,9 @@ void walk_port_list() {
 }
 
 
-int parse_args(int argc, char **argv)
+void parse_args(int argc, char **argv)
 {
-	int exitcode = -1;
+	int exitcode = 0;
 	int fork = 0;
 	const char *log_file = NULL;
 	char c;
@@ -86,7 +86,7 @@ int parse_args(int argc, char **argv)
 				break;
 			case 'h':
 				usage();
-				exitcode = 0;
+				exitcode = -1;
 				break;
 			case 'd':
 				if (lldp_debug_level > 0)
@@ -108,7 +108,7 @@ int parse_args(int argc, char **argv)
 				break;
 			default:
 				usage();
-				exitcode = 0;
+				exitcode = -1;
 				break;
 		}
 	}
@@ -117,8 +117,12 @@ int parse_args(int argc, char **argv)
 	  lldp_debug_open_file(log_file);
 	else
 	  lldp_debug_setup_stdout();
+
+	if (exitcode == -1)
+		exit(EXIT_SUCCESS);
+	else
+		return;
 	
-	return exitcode;
 }
 
 int main(int argc, char **argv)
@@ -127,12 +131,10 @@ int main(int argc, char **argv)
     struct timeval timeout;
     struct timeval un_timeout;
    	int fork = 0;
-	int exitcode = -1;
 	const char *log_file = NULL;
 	char c;
 
 	int op = 0;
-    char *theOpts = "i:fh";
     int socket_width = 0;
     time_t current_time = 0;
     time_t last_check = 0;
@@ -144,67 +146,18 @@ int main(int argc, char **argv)
 	
 	program = argv[0];
 
-	//parse_args(argc, argv);
-#if 1
-	for (;;) {
-		c = getopt(argc, argv, "dhqf:stxi:");
-		if (c < 0)
-		  break;
-		switch (c) {
-			case 'i':
-				iface_filter = 1;
-				memcpy(iface_list, optarg, strlen(optarg));
-				iface_list[LLDP_IF_NAMESIZE - 1] = '\0';
-				lldp_printf(MSG_INFO, "Using interface %s\n", iface_list);
-				break;
-			case 'x':
-				fork = 0;
-				break;
-			case 'h':
-				usage();
-				exitcode = 0;
-				goto out;
-			case 'd':
-				if (lldp_debug_level > 0)
-				  lldp_debug_level--;
-				break;
-			case 'f':
-				log_file = optarg;
-				break;
-			case 'q':
-				lldp_debug_level++;
-				break;
-#ifdef CONFIG_DEBUG_SYSLOG
-			case 's':
-				lldp_debug_open_syslog();
-				break;
-#endif /* CONFIG_DEBUG_SYSLOG */
-			case 't':
-				lldp_debug_timestamp++;
-				break;
-			default:
-				usage();
-				exitcode = 0;
-				goto out;
-		}
-	}
+	parse_args(argc, argv);
 
-	if (log_file)
-	  lldp_debug_open_file(log_file);
-	else
-	  lldp_debug_setup_stdout();
-
-#endif
 	get_sys_desc();
 	get_sys_fqdn();
 
 	// get uid of user executing program. 
     uid = getuid();
-	lldp_printf(MSG_INFO, "[%s %d] Program %s uid %d\n", __FUNCTION__, __LINE__, argv[0], uid);
 	if (uid != 0) {
         lldp_printf(MSG_ERROR, "You must be running as root to run %s!\n", program);
         exit(0);
     }
+	lldp_printf(MSG_INFO, "[%s %d] Program %s uid %d\n", __FUNCTION__, __LINE__, argv[0], uid);
 	
 	if (initialize_lldp() == 0)
 		lldp_printf(MSG_WARNING, "[%s %d] no interface found to listen on\n", __FUNCTION__, __LINE__);
@@ -258,6 +211,8 @@ int main(int argc, char **argv)
 				continue; /* Error, interface index %d with name %s is NULL */
 			}
 			
+			lldp_printf(MSG_DEBUG, "[%s %d] ifname %s, result %u\n", 
+						__FUNCTION__, __LINE__, lldp_port->if_name, result);
 			if (result > 0) {
 				lldp_printf(MSG_DEBUG, "[%s %d] ifname %s, result %u\n", 
 							__FUNCTION__, __LINE__, lldp_port->if_name, result);
@@ -267,6 +222,7 @@ int main(int argc, char **argv)
 									__FUNCTION__, __LINE__, lldp_port->if_name);
 
 					lldp_read(lldp_port);
+					
 					if (lldp_port->rx.recvsize <= 0) {
 						if (errno != EAGAIN && errno != ENETDOWN)
 							printf("Error: (%d): %s (%s:%d)\n", 
@@ -285,22 +241,35 @@ int main(int argc, char **argv)
 						//rxStatemachineRun(lldp_port);
 					}
 				}
-			}
+			} /* end result > 0 */
 			
+
 			if ((result == 0) || (current_time > last_check)) {
 				lldp_port->tick = 1;
 				
 				txStatemachineRun(lldp_port); 
                 //rxStatemachineRun(lldp_port);
+
+				lldp_port->tick = 0;
 			}
-		}
+
+
+			if(result < 0) {
+				if(errno != EINTR) {
+					lldp_printf(MSG_ERROR, "[%s %d][ERROR] %s\n", __FUNCTION__, __LINE__, strerror(errno));
+				}
+			}
+
+			lldp_port = lldp_port->next;
+		}	/* end while(lldp_port != NULL) */
 
 		time(&last_check);
-	}
+	
+	}	/* end while(1) */
 	
 out:	
 
-	return exitcode;	
+	return 0;	
 }
 
 void cleanupLLDP(struct lldp_port *lldp_port)
@@ -338,14 +307,14 @@ int initialize_lldp()
 			continue;
 		
 		if (iface_filter) {
-			lldp_printf(MSG_DEBUG, "[%s %d] if_name %s, iface_list %s\n", __FUNCTION__, __LINE__, if_name, iface_list);
+			lldp_printf(MSG_INFO, "[%s %d] if_name %s, iface_list %s\n", __FUNCTION__, __LINE__, if_name, iface_list);
 
 			if (strncmp(if_name, (const char *)iface_list, LLDP_IF_NAMESIZE) != 0)
 				continue;	/* skipping interface */
 		}
-		lldp_printf(MSG_DEBUG, "[%s %d] interface[%d] name %s\n", __FUNCTION__, __LINE__, if_index, if_name);
+		lldp_printf(MSG_INFO, "[%s %d] interface[%d] name %s\n", __FUNCTION__, __LINE__, if_index, if_name);
 
-#if 0
+#if 1
 		if (strstr(if_name, "lo") != NULL)
 			continue;
 
@@ -384,7 +353,7 @@ int initialize_lldp()
 			continue;
 		} else {
 			/* finished initialize socket for this interface */
-			lldp_printf(MSG_DEBUG, "[%s %d] initialize lldp socket for interface %s successfully\n", __FUNCTION__, __LINE__, if_name);
+			lldp_printf(MSG_INFO, "[%s %d] initialize lldp socket for interface %s successfully\n", __FUNCTION__, __LINE__, if_name);
 		}
 		
 		nb_ifaces++;

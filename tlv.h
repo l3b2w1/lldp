@@ -88,6 +88,9 @@
 #define XVALIDTLV     	0
 #define XEINVALIDTLV 	-1
 
+//extern u8 (*validate_tlv[])(struct lldp_tlv*);
+u8 intializeTLVFunctionValidators();
+
 struct lldp_tlv *create_chassis_id_tlv(struct lldp_port *lldp_port);
 uint8_t validate_chassis_id_tlv(struct lldp_tlv *tlv);
 
@@ -122,7 +125,7 @@ struct lldp_tlv *validate_lldpmed_location_identification_tlv(struct lldp_tlv *t
 struct lldp_tlv *create_organizationally_specific_tlv(struct lldp_port *lldp_port, uint8_t *oui);
 uint8_t validate_organizationally_specific_tlv(struct lldp_tlv *tlv);
 
-extern uint8_t (*validate_tlv[])(struct lldp_tlv *tlv);
+
 
 #define LLDP_BEGIN_RESERVED_TLV 9
 #define LLDP_END_RESERVED_TLV 126
@@ -134,5 +137,10 @@ char *decode_tlv_subtype(struct lldp_tlv *tlv);
 
 void tlvCleanupLLDP();
 u8 tlvInitializeLLDP(struct lldp_port *lldp_port);
+
+
+
+struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port);
+struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port);
 
 #endif

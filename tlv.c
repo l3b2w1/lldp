@@ -10,7 +10,7 @@
 #include "lldp_port.h"
 #include "lldp_debug.h"
 #include "lldp_neighbor.h"
-
+#include "lldp_dunchong.h"
 
 u8 (*validate_tlv[128])(struct lldp_tlv *tlv) = {
 	validate_end_of_lldp_pdu_tlv,		/* 0 End of LLDP PDU TLV */
@@ -379,7 +379,7 @@ uint8_t validate_system_description_tlv(struct lldp_tlv *tlv)
 struct lldp_tlv *create_system_capabilities_tlv(struct lldp_port *lldp_port)
 {
     struct lldp_tlv* tlv = initialize_tlv();
-    uint16_t capabilities = htons(0x001d);
+    uint16_t capabilities = htons(0x001c);
     uint16_t enabled_caps = htons(0x0008);
 
     tlv->type = SYSTEM_CAPABILITIES_TLV; // Constant defined in lldp_tlv.h
@@ -450,7 +450,7 @@ struct lldp_tlv *create_management_address_tlv(struct lldp_port *lldp_port)
     // Interface number... 4 bytes long, or uint32_t
     memcpy(&tlv->value[7], &lldp_port->if_index, sizeof(uint32_t));
 
-    lldp_printf(MSG_INFO, "Would stuff interface #: %d\n", if_index);
+    //lldp_printf(MSG_INFO, "Would stuff interface #: %d\n", if_index);
 
     // OID - 0 for us
     tlv->value[11] = 0;
@@ -463,7 +463,43 @@ uint8_t validate_management_address_tlv(struct lldp_tlv *tlv)
     return XVALIDTLV;
 }
 
+struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port)
+{
+    struct lldp_tlv* tlv = initialize_tlv();
+	u8 *vendor = "dunchong";
+	u8 subtype = LLDP_DUNCHONG_VENDOR;
 
+    tlv->type = ORG_SPECIFIC_TLV; // Constant defined in lldp_tlv.h
+
+    tlv->length = strlen(vendor) + 3 + 1;
+
+    tlv->value = calloc(1, tlv->length);
+
+	memcpy(tlv->value, DCOUI, 3);
+	memcpy(&tlv->value[3], &subtype, 1);
+    memcpy(&tlv->value[4], vendor, strlen(vendor));
+
+    return tlv;
+}
+
+struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port)
+{
+    struct lldp_tlv* tlv = initialize_tlv();
+	u8 ipaddr[] = {0x0a, 0x00, 0x01, 0xc3};
+	u8 subtype = LLDP_DUNCHONG_DEVICE_IPADDR;
+
+    tlv->type = ORG_SPECIFIC_TLV; // Constant defined in lldp_tlv.h
+
+    tlv->length = sizeof(ipaddr) + 3 + 1;
+
+    tlv->value = calloc(1, tlv->length);
+
+	memcpy(tlv->value, DCOUI, 3);
+	memcpy(&tlv->value[3], &subtype, 1);
+    memcpy(&tlv->value[4], ipaddr, sizeof(ipaddr));
+
+    return tlv;
+}
 
 u8 validate_organizationally_specific_tlv(struct lldp_tlv *tlv)
 {
@@ -497,7 +533,6 @@ int validate_generic_tlv(struct lldp_tlv *tlv)
 
     return XVALIDTLV;
 }
-
 
 
 u8 tlvInitializeLLDP(struct lldp_port *lldp_port)

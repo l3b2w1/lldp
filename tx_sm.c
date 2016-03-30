@@ -36,14 +36,22 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	struct lldp_flat_tlv *tlv = NULL;
 	struct lldp_tlv_list *tmp = NULL;
 	u32 frame_offset = 0;
+#if 0
+	tx_hdr.dst[0] = 0xff;
+	tx_hdr.dst[1] = 0xff;
+	tx_hdr.dst[2] = 0xff;
+	tx_hdr.dst[3] = 0xff;
+	tx_hdr.dst[4] = 0xff;
+	tx_hdr.dst[5] = 0xff;
 
+#else
 	tx_hdr.dst[0] = 0x01;
 	tx_hdr.dst[1] = 0x80;
 	tx_hdr.dst[2] = 0xc2;
 	tx_hdr.dst[3] = 0x00;
 	tx_hdr.dst[4] = 0x00;
 	tx_hdr.dst[5] = 0x0e;
-
+#endif
 	tx_hdr.src[0] = lldp_port->source_mac[0];
 	tx_hdr.src[1] = lldp_port->source_mac[1];
 	tx_hdr.src[2] = lldp_port->source_mac[2];
@@ -75,9 +83,6 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	/* This TLV *MUST* be third */
 	add_tlv(create_ttl_tlv(lldp_port), &tlv_list);
 
-	/*
-	 *	add vendor-specific TLVs 
-	 */
 
 	/* add the optional tlv */
 	add_tlv(create_port_description_tlv(lldp_port), &tlv_list);
@@ -89,6 +94,11 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
     add_tlv(create_system_capabilities_tlv(lldp_port), &tlv_list);
 
     add_tlv(create_management_address_tlv(lldp_port), &tlv_list);
+
+	/* Vendor-specific TLVs */
+	add_tlv(create_dunchong_tlv(lldp_port), &tlv_list);
+	add_tlv(create_dunchong_ipaddr_tlv(lldp_port), &tlv_list);
+
 
 	/* This TLV "MUST" be last */
 	add_tlv(create_end_of_lldp_pdu_tlv(lldp_port), &tlv_list);
@@ -144,7 +154,7 @@ u8 txInitializeLLDP(struct lldp_port *lldp_port)
 	/* recommended minimum by 802.1ab 10.5.3.3 */
 	lldp_port->tx.timers.reinitDelay = 2; 
 	lldp_port->tx.timers.msgTxHold = 4;
-	lldp_port->tx.timers.msgTxInterval = 30;
+	lldp_port->tx.timers.msgTxInterval = 5; // 15000 ~= 3 seconds
 	lldp_port->tx.timers.txDelay = 2;
 
 	/* unsure what to set these to ... */
@@ -208,7 +218,7 @@ void txGlobalStatemachineRun(struct lldp_port *lldp_port)
 	switch (lldp_port->tx.state) {
 		case TX_LLDP_INITIALIZE:
 			if ((lldp_port->adminStatus == enabledRxTx) || (lldp_port->adminStatus == enabledTxOnly))
-			  txChangeToState(lldp_port, TX_IDLE);
+				txChangeToState(lldp_port, TX_IDLE);
 			break;
 		case TX_IDLE:
 			/* it is time to send a shutdown frame ... */
@@ -251,7 +261,7 @@ void tx_decrement_timer(u16 *timer)
 
 void tx_display_timers(struct lldp_port *lldp_port) 
 {
-#if 0
+#if 1
 	lldp_printf(MSG_ERROR, "[IP] (%s) IP: %d.%d.%d.%d\n", lldp_port->if_name, lldp_port->source_ipaddr[0], lldp_port->source_ipaddr[1], lldp_port->source_ipaddr[2], lldp_port->source_ipaddr[3]);
 
 	lldp_printf(MSG_ERROR, "[TIMER] (%s) txTTL: %d\n", lldp_port->if_name, lldp_port->tx.txTTL);
