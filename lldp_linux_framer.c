@@ -95,28 +95,35 @@ int lldp_init_socket(struct lldp_port *lldp_port)
 	int retval = 0;
 	
 	if (lldp_port->if_name == NULL) {
-		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] port if_name is NULL\n", __FUNCTION__, __LINE__);
+		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] Got NULL interface\n", __FUNCTION__, __LINE__);
 		return XENOSOCK;
 	}
 	
 	if (lldp_port->if_index <= 0) {
-		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] port if_index <= 0\n", __FUNCTION__, __LINE__);
+		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] if_index <= 0, does not appear b to be a valid interface\n", __FUNCTION__, __LINE__);
 		return XENOSOCK;
 	}
 	
-	lldp_port->socket = socket(PF_PACKET, SOCK_RAW, htons(0x88cc));
+    lldp_printf(MSG_INFO, "[%s %d]'%s' is index %d\n", 
+				__FUNCTION__, __LINE__,
+				lldp_port->if_name, lldp_port->if_index);
+
+	/* Set up the raw socket for the LLDP ethertype */
+	lldp_port->socket = socket(PF_PACKET, SOCK_RAW, htons(0x88CC));
 	if (lldp_port->socket < 0) {
-		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] port create raw socket failed, socket < 0\n", __FUNCTION__, __LINE__);
+        lldp_printf(MSG_ERROR, "[%s %d]Couldn't initialize raw socket for interface %s!\n", __FUNCTION__, __LINE__, lldp_port->if_name);
 		return XENOSOCK;
 	}
 	
+
+	/* Set up the interface for binding */
 	sll->sll_family = PF_PACKET;
 	sll->sll_ifindex = lldp_port->if_index;
-	sll->sll_protocol = htons(0x88cc);
+	sll->sll_protocol = htons(0x88CC);
 	
 	retval = bind(lldp_port->socket, (struct sockaddr*)sll, sizeof(struct sockaddr_ll));
 	if (retval < 0) { 
-		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] socket bind failed\n", __FUNCTION__, __LINE__);
+		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] binding raw socket to interface %s failed\n", __FUNCTION__, __LINE__, lldp_port->if_name);
 		return XENOSOCK;
 	}
 	
@@ -124,7 +131,7 @@ int lldp_init_socket(struct lldp_port *lldp_port)
 	
 	strncpy(ifr->ifr_name, &lldp_port->if_name[0], strlen(lldp_port->if_name));
 	if (strlen(ifr->ifr_name) == 0) {
-		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] ifr_name length is 0\n", __FUNCTION__, __LINE__);
+		lldp_printf(MSG_ERROR, "[%s %d] [ERROR]Invalid interface name\n", __FUNCTION__, __LINE__);
 		return XENOSOCK;
 	}
 	
@@ -132,11 +139,10 @@ int lldp_init_socket(struct lldp_port *lldp_port)
 	
 	retval = ioctl(lldp_port->socket, SIOCGIFFLAGS, ifr);
 	if (retval == -1)
-		lldp_printf(MSG_WARNING, "[%s %d] [WARNING] Interface %s, can not get flags for \n", __FUNCTION__, __LINE__, lldp_port->if_name);
+		lldp_printf(MSG_WARNING, "[%s %d] [WARNING] can not get flags for interface %s\n", __FUNCTION__, __LINE__, lldp_port->if_name);
 	
 	if ((ifr->ifr_flags & IFF_UP) == 0) {
-		/* interface is down. set portEnabled = 0 */
-		lldp_printf(MSG_WARNING, "[%s %d] [WARNING] Interface %s is NOT UP, now set portEnable to 0\n", lldp_port->if_name, __FUNCTION__, __LINE__);
+		lldp_printf(MSG_WARNING, "[%s %d] [WARNING] Interface %s is DOWN,portEnabled = 0\n", lldp_port->if_name, __FUNCTION__, __LINE__);
 		lldp_port->portEnabled = 0;
 	}
 	
@@ -147,22 +153,30 @@ int lldp_init_socket(struct lldp_port *lldp_port)
 	 *
 	 * ifr.ifr_flags &= ~IFF_ALLMULTI;  allmulti off
 	 */
-	ifr->ifr_flags |= IFF_ALLMULTI; /* allmulti on (verified via ifconfig) */
 	retval = ioctl(lldp_port->socket, SIOCSIFFLAGS, ifr);
 	if (retval == -1)
 		lldp_printf(MSG_WARNING, "[%s %d] [WARNING] Interface %s, cannot set flags IFF_ALLMULTI\n", 
 							lldp_port->if_name, __FUNCTION__, __LINE__);
+
+	/* allmulti on (verified via ifconfig) */
+	ifr->ifr_flags |= IFF_ALLMULTI; 
+
+	retval = ioctl(lldp_port->socket, SIOCSIFFLAGS, ifr);
+    if (retval == -1) {
+		lldp_printf(MSG_ERROR, "[%s %d]Can't set flags for interface %s\n", __FUNCTION__, __LINE__, lldp_port->if_name);
+    }
+
 	
 	/* discover MTU for this interface */
 	retval = ioctl(lldp_port->socket, SIOCGIFMTU, ifr);
-	if (retval <0) {
-		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] Interface %s, cannot discover its MTU\n", 
-							lldp_port->if_name, __FUNCTION__, __LINE__);
+	if (retval < 0) {
+		lldp_printf(MSG_ERROR, "[%s %d] [ERROR] Can't determin MTU for interface %s\n", __FUNCTION__, __LINE__, lldp_port->if_name);
 		return retval;
 	}
 	
 
     lldp_port->mtu = ifr->ifr_ifru.ifru_mtu;
+
     lldp_printf(MSG_INFO, "[%s %d][INFO] Interface %s's MTU is %d\n",
 				__FUNCTION__, __LINE__, lldp_port->if_name, lldp_port->mtu);
 

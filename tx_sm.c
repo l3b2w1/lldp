@@ -136,9 +136,9 @@ void mibConstructShutdownLLDPPDU(struct lldp_port *lldp_port)
 	lldp_printf(MSG_INFO, "[%s %d][INFO] Would send shutdown!");
 
 	if (validate_end_of_lldp_pdu_tlv(end_tlv))
-	  memcpy(&lldp_port->tx.frame[0], end_tlv, 3);
+		memcpy(&lldp_port->tx.frame[0], end_tlv, 3);
 	else 
-	  lldp_printf(MSG_INFO, "[%s %d]TLV End of LLDPDU validation failure !\n", __FUNCTION__, __LINE__);
+		lldp_printf(MSG_INFO, "[%s %d]TLV End of LLDPDU validation failure !\n", __FUNCTION__, __LINE__);
 
 	free(end_tlv);
 }
@@ -300,8 +300,8 @@ char *txStateFromID(u8 state) {
 
 void txStatemachineRun(struct lldp_port *lldp_port)
 {
-	//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s -> %s\n", 
-	//				__FUNCTION__, __LINE__, lldp_port->if_name, txStateFromID(lldp_port->tx.state));
+	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s -> %s\n", 
+					__FUNCTION__, __LINE__, lldp_port->if_name, txStateFromID(lldp_port->tx.state));
 	txGlobalStatemachineRun(lldp_port);
 
 	switch (lldp_port->tx.state) {

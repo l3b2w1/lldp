@@ -302,19 +302,26 @@ int initialize_lldp()
 	struct lldp_port *lldp_port = NULL;
 	int nb_ifaces = 0;
 	
+	/*
+	 * we need to initialize an LLDP port-per interface
+	 * "lldp_port" will be changed to point at the interface currently being
+	 * serviced
+	 */
 	for (if_index = MIN_INTERFACES; if_index < MAX_INTERFACES; if_index++) {
 		if (if_indextoname(if_index, if_name) == NULL)
 			continue;
 		
+		/* keep only the interface specified by -i option */
 		if (iface_filter) {
-			lldp_printf(MSG_INFO, "[%s %d] if_name %s, iface_list %s\n", __FUNCTION__, __LINE__, if_name, iface_list);
-
 			if (strncmp(if_name, (const char *)iface_list, LLDP_IF_NAMESIZE) != 0)
+				lldp_printf(MSG_INFO, "[%s %d]Skipping interface %s (not %s)\n",
+							__FUNCTION__, __LINE__, if_name, iface_list);
 				continue;	/* skipping interface */
 		}
 		lldp_printf(MSG_INFO, "[%s %d] interface[%d] name %s\n", __FUNCTION__, __LINE__, if_index, if_name);
 
 #if 1
+		/* we do not process the lo interface */
 		if (strstr(if_name, "lo") != NULL)
 			continue;
 
@@ -339,12 +346,14 @@ int initialize_lldp()
 		
 		memcpy(lldp_port->if_name, if_name, LLDP_IF_NAMESIZE);
 		
-		lldp_printf(MSG_INFO, "[%s %d] set enablePort to 1\n", __FUNCTION__, __LINE__);
+		lldp_printf(MSG_INFO, "[%s %d] %s (index %d) found. Initializing...\n",
+					__FUNCTION__, __LINE__, 
+					lldp_port->if_name, lldp_port->if_index);
+
 		lldp_port->portEnabled = 1;
 		
 		/* initialize the socket for this interface */
 		if (lldp_init_socket(lldp_port) != 0) {
-			/* Error Problem initialize socket for this interface */
 			lldp_printf(MSG_ERROR, "[%s %d][ERROR] Problem initialize socket for this interface\n", __FUNCTION__, __LINE__);
 			free(lldp_port->if_name);
 			lldp_port->if_name = NULL;
@@ -352,19 +361,33 @@ int initialize_lldp()
 			lldp_port = NULL;
 			continue;
 		} else {
-			/* finished initialize socket for this interface */
-			lldp_printf(MSG_INFO, "[%s %d] initialize lldp socket for interface %s successfully\n", __FUNCTION__, __LINE__, if_name);
+			lldp_printf(MSG_INFO, "[%s %d]Finished initializing socket for index %d with name %s\n", 
+						__FUNCTION__, __LINE__, 
+						lldp_port->if_index, lldp_port->if_name);
 		}
 		
 		nb_ifaces++;
 
+		lldp_printf(MSG_INFO, "[%s %d]Initializing TX SM for index %d with name %s\n", 
+					__FUNCTION__, __LINE__, 
+					lldp_port->if_index, lldp_port->if_name);
 		lldp_port->tx.state = TX_LLDP_INITIALIZE;
 		txInitializeLLDP(lldp_port);
+
+#if 0
+		lldp_printf(MSG_INFO, "[%s %d]Initializing RX SM for index %d with name %s\n", 
+					__FUNCTION__, __LINE__, 
+					lldp_port->if_index, lldp_port->if_name);
 		lldp_port->rx.state = LLDP_WAIT_PORT_OPERATIONAL;
-	//	rxInitializeLLDP(lldp_port);
+		rxInitializeLLDP(lldp_port);
+#endif
 		lldp_port->portEnabled = 0;
 		lldp_port->adminStatus = enabledRxTx;
 		
+		lldp_printf(MSG_INFO, "[%s %d]Initializing TLV subsystem for index %d with name %s\n", 
+					__FUNCTION__, __LINE__, 
+					lldp_port->if_index, lldp_port->if_name);
+		/* Initialize the TLV subsystem for this interface */
 		tlvInitializeLLDP(lldp_port);
 		
 		lldp_printf(MSG_DEBUG, "[%s %d] To send out the first lldp frame\n", __FUNCTION__, __LINE__);
@@ -381,11 +404,13 @@ int initialize_lldp()
 	
 	/* Don't forget to initialize the TLV validators... */
     //initializeTLVFunctionValidators();
+
 	signal(SIGTERM, cleanupLLDP);
 	signal(SIGINT, cleanupLLDP);
 	signal(SIGQUIT, cleanupLLDP);
 	signal(SIGSEGV, handle_segfault);
 	signal(SIGHUP, handle_hup);
+
 	return nb_ifaces;
 }
 
