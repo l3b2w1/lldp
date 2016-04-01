@@ -241,7 +241,7 @@ struct lldp_tlv *create_chassis_id_tlv(struct lldp_port *lldp_port)
 
 	p = lldp_port->source_mac;
 	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] lldp_port->source_mac %02x:%02x:%02x:%02x:%02x:%02x\n",
-				__FUNCTION__, __LINE__, lldp_port->if_name, p[0], p[1], p[2], p[3], p[4], p[5]);
+				__FUNCTION__, __LINE__,  p[0], p[1], p[2], p[3], p[4], p[5]);
 	
 	return tlv;	
 }
