@@ -4,11 +4,18 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <time.h>
+#include <linux/if_ether.h>
 
 #include "datatype.h"	// linux/types.h
 
 #define MIN_INTERFACES   1
 #define MAX_INTERFACES  16
+
+
+#define ETH_P_LLDP			0x88cc
+
+#define ETH_P_DUNCHONG		ETH_P_LLDP
+
 
 struct eth_hdr {
 	u8 dst[6];

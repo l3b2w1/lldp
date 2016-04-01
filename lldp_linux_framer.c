@@ -109,7 +109,7 @@ int lldp_init_socket(struct lldp_port *lldp_port)
 				lldp_port->if_name, lldp_port->if_index);
 
 	/* Set up the raw socket for the LLDP ethertype */
-	lldp_port->socket = socket(PF_PACKET, SOCK_RAW, htons(0x88CC));
+	lldp_port->socket = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_DUNCHONG));
 	if (lldp_port->socket < 0) {
         lldp_printf(MSG_ERROR, "[%s %d]Couldn't initialize raw socket for interface %s!\n", __FUNCTION__, __LINE__, lldp_port->if_name);
 		return XENOSOCK;
@@ -119,7 +119,7 @@ int lldp_init_socket(struct lldp_port *lldp_port)
 	/* Set up the interface for binding */
 	sll->sll_family = PF_PACKET;
 	sll->sll_ifindex = lldp_port->if_index;
-	sll->sll_protocol = htons(0x88CC);
+	sll->sll_protocol = htons(ETH_P_DUNCHONG);
 	
 	retval = bind(lldp_port->socket, (struct sockaddr*)sll, sizeof(struct sockaddr_ll));
 	if (retval < 0) { 
@@ -153,13 +153,13 @@ int lldp_init_socket(struct lldp_port *lldp_port)
 	 *
 	 * ifr.ifr_flags &= ~IFF_ALLMULTI;  allmulti off
 	 */
-	retval = ioctl(lldp_port->socket, SIOCSIFFLAGS, ifr);
+	retval = ioctl(lldp_port->socket, SIOCGIFFLAGS, ifr);
 	if (retval == -1)
-		lldp_printf(MSG_WARNING, "[%s %d] [WARNING] Interface %s, cannot set flags IFF_ALLMULTI\n", 
-							lldp_port->if_name, __FUNCTION__, __LINE__);
+		lldp_printf(MSG_WARNING, "[%s %d] [WARNING] Can not get flags for interface %s\n", 
+							__FUNCTION__, __LINE__, lldp_port->if_name);
 
 	/* allmulti on (verified via ifconfig) */
-	ifr->ifr_flags |= IFF_ALLMULTI; 
+	ifr->ifr_flags  |= IFF_ALLMULTI; 
 
 	retval = ioctl(lldp_port->socket, SIOCSIFFLAGS, ifr);
     if (retval == -1) {

@@ -214,11 +214,8 @@ int main(int argc, char **argv)
 			lldp_printf(MSG_DEBUG, "[%s %d] ifname %s, result %u\n", 
 						__FUNCTION__, __LINE__, lldp_port->if_name, result);
 			if (result > 0) {
-				lldp_printf(MSG_DEBUG, "[%s %d] ifname %s, result %u\n", 
-							__FUNCTION__, __LINE__, lldp_port->if_name, result);
-
 				if (FD_ISSET(lldp_port->socket, &readfds)) {
-                    lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s is readable!\n", 
+                    			lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s is readable!\n", 
 									__FUNCTION__, __LINE__, lldp_port->if_name);
 
 					lldp_read(lldp_port);
@@ -231,7 +228,7 @@ int main(int argc, char **argv)
 					} else {
 						/* Got an LLDP Frame %d bytes  long on %s */
 						lldp_printf(MSG_INFO, "[%s %d][INFO] Got an LLDP frame %d bytes long on %s\n", 
-									__FUNCTION__, __LINE__, lldp_port->if_name);
+									__FUNCTION__, __LINE__, lldp_port->rx.recvsize, lldp_port->if_name);
 
 					 //lldp_debug_hex_dump(MSG_DEBUG, lldp_port->rx.frame, lldp_port->rx.recvsize);
 
@@ -313,10 +310,11 @@ int initialize_lldp()
 		
 		/* keep only the interface specified by -i option */
 		if (iface_filter) {
-			if (strncmp(if_name, (const char *)iface_list, LLDP_IF_NAMESIZE) != 0)
+			if (strncmp(if_name, (const char *)iface_list, LLDP_IF_NAMESIZE) != 0) {
 				lldp_printf(MSG_INFO, "[%s %d]Skipping interface %s (not %s)\n",
 							__FUNCTION__, __LINE__, if_name, iface_list);
 				continue;	/* skipping interface */
+			}
 		}
 		lldp_printf(MSG_INFO, "[%s %d] interface[%d] name %s\n", __FUNCTION__, __LINE__, if_index, if_name);
 

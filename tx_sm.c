@@ -59,7 +59,7 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	tx_hdr.src[4] = lldp_port->source_mac[4];
 	tx_hdr.src[5] = lldp_port->source_mac[5];
 
-	tx_hdr.ethertype = htons(0x88cc);
+	tx_hdr.ethertype = htons(ETH_P_DUNCHONG);
 
 	frame_offset = 0;
 
