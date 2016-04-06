@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
+#include <pthread.h>
 #include "tlv.h"
 #include "lldp_port.h"
 #include "lldp_neighbor.h"
@@ -125,6 +126,141 @@ void parse_args(int argc, char **argv)
 	
 }
 
+void thread_rx_sm(void *ptr)
+{
+	int socket_width = 0;
+    struct timeval timeout;
+    struct timeval un_timeout;
+    time_t current_time = 0;
+    time_t last_check = 0;
+    int result = 0;
+	struct lldp_port *lldp_port = NULL;
+	pthread_t thread_tx_id;
+
+	struct eth_hdr expect_hdr, *ether_hdr;
+
+	fd_set readfds;
+
+	expect_hdr.ethertype = htons(0x88cc);
+	while (1) {
+		FD_ZERO(&readfds);	/* setup select() */
+
+		lldp_port = lldp_ports;
+
+		while (lldp_port) {
+
+			/* This is not the interface you are looking for ... */
+			if (lldp_port->if_name == NULL) {
+				lldp_printf(MSG_ERROR, "[%s %d][ERROR] Interface index %d with name  is NULL \n", __FUNCTION__, __LINE__, lldp_port->if_index);
+				continue; /* Error, interface index %d with name %s is NULL */
+			}
+
+			FD_SET(lldp_port->socket, &readfds);
+
+			if (lldp_port->socket > socket_width)
+			  socket_width = lldp_port->socket;
+
+			lldp_port = lldp_port->next;
+		}
+
+		time(&current_time);
+
+		/* tell select how long to wait for ... */
+		timeout.tv_sec = 1;
+		timeout.tv_usec = 0;
+
+		/* Timeout after 1 second if nothing is ready */
+		result = select(socket_width + 1, &readfds, NULL, NULL, &timeout);
+
+		/* process the sockets */
+		lldp_port = lldp_ports;
+
+		while (lldp_port != NULL) {
+			/* This is not the interface you are looking for ... */
+			if (lldp_port->if_name == NULL) {
+				lldp_printf(MSG_ERROR, "[%s %d][ERROR] Interface index %d with name  is NULL \n", 
+							__FUNCTION__, __LINE__, lldp_port->if_index);
+				continue; /* Error, interface index %d with name %s is NULL */
+			}
+
+			//lldp_printf(MSG_DEBUG, "[%s %d] ifname %s, result %u\n", 
+			//			__FUNCTION__, __LINE__, lldp_port->if_name, result);
+			if (result > 0) {
+				if (FD_ISSET(lldp_port->socket, &readfds)) {
+					//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s is readable, recvsize %d\n", 
+					//			__FUNCTION__, __LINE__, lldp_port->if_name, result);
+
+					lldp_read(lldp_port);
+
+					ether_hdr = (struct eth_hdr *)lldp_port->rx.frame;
+
+					if (ether_hdr->ethertype != expect_hdr.ethertype)
+						continue;
+
+					if (lldp_port->rx.recvsize <= 0) {
+						if (errno != EAGAIN && errno != ENETDOWN)
+						  printf("Error: (%d): %s (%s:%d)\n", 
+									  errno, strerror(errno),
+									  __FUNCTION__, __LINE__);
+					} else {
+						/* Got an LLDP Frame %d bytes  long on %s */
+						//lldp_printf(MSG_INFO, "[%s %d][INFO] Got an LLDP frame %d bytes long on %s\n", 
+						//			__FUNCTION__, __LINE__, lldp_port->rx.recvsize, lldp_port->if_name);
+
+						//lldp_debug_hex_dump(MSG_DEBUG, lldp_port->rx.frame, lldp_port->rx.recvsize);
+
+						/* Mark that we received a frame so the rx state machine can process it. */
+						lldp_port->rx.rcvFrame = 1;
+
+						show_lldp_pdu(lldp_port->rx.frame, lldp_port->rx.recvsize);
+						//rxStatemachineRun(lldp_port);
+					}
+				}
+			} /* end result > 0 */
+
+
+			if ((result == 0) || (current_time > last_check)) {
+				lldp_port->tick = 1;
+
+				//txStatemachineRun(lldp_port); 
+				//rxStatemachineRun(lldp_port);
+
+				lldp_port->tick = 0;
+			}
+
+
+			if(result < 0) {
+				if(errno != EINTR) {
+					lldp_printf(MSG_ERROR, "[%s %d][ERROR] %s\n", __FUNCTION__, __LINE__, strerror(errno));
+				}
+			}
+
+			lldp_port = lldp_port->next;
+		}	/* end while(lldp_port != NULL) */
+
+		time(&last_check);
+
+	}
+}
+
+void thread_tx_sm(void *ptr)
+{
+	struct lldp_port  *lldp_port;
+
+	while (1) {
+
+		printf("Thread TX SM run...\n");
+		lldp_port = lldp_ports;
+
+		while (lldp_port) {
+			txStatemachineRun(lldp_port);
+			lldp_port = lldp_port->next;
+		}
+
+		sleep(1);
+	}
+}
+
 int main(int argc, char **argv)
 {
     uid_t uid;
@@ -140,6 +276,7 @@ int main(int argc, char **argv)
     time_t last_check = 0;
     int result = 0;
 	struct lldp_port *lldp_port = NULL;
+	pthread_t thread_tx_id, thread_rx_id;
 
 	fd_set readfds;
     fd_set unixfds;
@@ -170,6 +307,12 @@ int main(int argc, char **argv)
 	
 	walk_port_list();
 
+	pthread_create(&thread_tx_id, NULL, thread_tx_sm, NULL);
+	pthread_create(&thread_rx_id, NULL, thread_rx_sm, NULL);
+	pthread_join(thread_tx_id, NULL);
+	pthread_join(thread_rx_id, NULL);
+
+#if 0
 	while (1) {
 		FD_ZERO(&readfds);	/* setup select() */
 
@@ -264,6 +407,7 @@ int main(int argc, char **argv)
 	
 	}	/* end while(1) */
 	
+#endif
 out:	
 
 	return 0;	

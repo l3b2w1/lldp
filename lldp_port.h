@@ -14,7 +14,8 @@
 
 #define ETH_P_LLDP			0x88cc
 
-#define ETH_P_DUNCHONG		ETH_P_LLDP
+//#define ETH_P_DUNCHONG		ETH_P_LLDP
+#define ETH_P_DUNCHONG		ETH_P_ALL
 
 
 struct eth_hdr {

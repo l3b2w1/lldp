@@ -36,7 +36,7 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	struct lldp_flat_tlv *tlv = NULL;
 	struct lldp_tlv_list *tmp = NULL;
 	u32 frame_offset = 0;
-#if 0
+#if 1
 	tx_hdr.dst[0] = 0xff;
 	tx_hdr.dst[1] = 0xff;
 	tx_hdr.dst[2] = 0xff;
@@ -59,7 +59,7 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	tx_hdr.src[4] = lldp_port->source_mac[4];
 	tx_hdr.src[5] = lldp_port->source_mac[5];
 
-	tx_hdr.ethertype = htons(ETH_P_DUNCHONG);
+	tx_hdr.ethertype = htons(ETH_P_LLDP);
 
 	frame_offset = 0;
 
