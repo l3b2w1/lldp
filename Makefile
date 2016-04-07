@@ -1,5 +1,6 @@
 objs = tlv.o tlv_common.o tx_sm.o lldp_linux_framer.o \
-		lldp_debug.o common_func.o lldp_neighbor.o
+		lldp_debug.o common_func.o lldp_neighbor.o \
+		rx_sm.o msap.o
 
 CCFLAGS= -g -Wall
 

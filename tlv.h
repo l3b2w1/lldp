@@ -138,9 +138,13 @@ char *decode_tlv_subtype(struct lldp_tlv *tlv);
 void tlvCleanupLLDP();
 u8 tlvInitializeLLDP(struct lldp_port *lldp_port);
 
-
+struct lldp_tlv *initialize_tlv();
+uint8_t tlvcpy(struct lldp_tlv *dst, struct lldp_tlv *src);
 
 struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port);
 struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port);
+struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port, int8_t role);
+
+char *tlv_typetoname(uint8_t tlv_type);
 
 #endif

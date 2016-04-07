@@ -24,6 +24,8 @@
 #include "tx_sm.h"
 #include "tlv.h"
 #include "tlv_common.h"
+#include "common_func.h"
+#include "lldp_dunchong.h"
 
 // This is set to argv[0] on startup.
 char *program;
@@ -128,14 +130,15 @@ void parse_args(int argc, char **argv)
 
 void thread_rx_sm(void *ptr)
 {
-	int socket_width = 0;
+	int32_t socket_width = 0;
     struct timeval timeout;
     struct timeval un_timeout;
     time_t current_time = 0;
     time_t last_check = 0;
-    int result = 0;
+    int32_t result = 0;
 	struct lldp_port *lldp_port = NULL;
 	pthread_t thread_tx_id;
+	int8_t *neighbors_info = NULL;
 
 	struct eth_hdr expect_hdr, *ether_hdr;
 
@@ -212,8 +215,12 @@ void thread_rx_sm(void *ptr)
 						/* Mark that we received a frame so the rx state machine can process it. */
 						lldp_port->rx.rcvFrame = 1;
 
-						show_lldp_pdu(lldp_port->rx.frame, lldp_port->rx.recvsize);
 						//rxStatemachineRun(lldp_port);
+						rxProcessFrame(lldp_port);
+						neighbors_info = lldp_neighbor_info(lldp_ports);
+						//printf("neighbors: %s\n", neighbors_info);
+						//free(neighbors_info);
+						//neighbors_info = NULL;
 					}
 				}
 			} /* end result > 0 */
@@ -249,7 +256,7 @@ void thread_tx_sm(void *ptr)
 
 	while (1) {
 
-		printf("Thread TX SM run...\n");
+		//printf("Thread TX SM run...\n");
 		lldp_port = lldp_ports;
 
 		while (lldp_port) {
@@ -259,6 +266,15 @@ void thread_tx_sm(void *ptr)
 
 		sleep(1);
 	}
+}
+
+
+int32_t dev_role;
+
+/* device role: master or slave */
+void get_dev_role()
+{
+	dev_role = LLDP_DUNCHONG_ROLE_MASTER;
 }
 
 int main(int argc, char **argv)
@@ -287,6 +303,7 @@ int main(int argc, char **argv)
 
 	get_sys_desc();
 	get_sys_fqdn();
+	get_dev_role();
 
 	// get uid of user executing program. 
     uid = getuid();
@@ -307,8 +324,8 @@ int main(int argc, char **argv)
 	
 	walk_port_list();
 
-	pthread_create(&thread_tx_id, NULL, thread_tx_sm, NULL);
-	pthread_create(&thread_rx_id, NULL, thread_rx_sm, NULL);
+	pthread_create(&thread_tx_id, NULL, (void*)thread_tx_sm, NULL);
+	pthread_create(&thread_rx_id, NULL, (void*)thread_rx_sm, NULL);
 	pthread_join(thread_tx_id, NULL);
 	pthread_join(thread_rx_id, NULL);
 

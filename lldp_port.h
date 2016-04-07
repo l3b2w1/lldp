@@ -117,7 +117,7 @@ struct lldp_port {
   u8 tick;
   time_t last_tick;
   
-  //struct lldp_msap *msap_cache;
+  struct lldp_msap *msap_cache;
 
 
   // 802.1AB Appendix G flag variables.
@@ -125,6 +125,26 @@ struct lldp_port {
   u8 auto_neg_advertized_capabilities;
   u8 operational_mau_type;
 };
+
+struct lldp_msap {
+  struct lldp_msap *next;
+  uint8_t *id;
+  uint8_t length;
+  struct lldp_tlv_list *tlv_list;
+  uint32_t ipaddr; /* if not allocated by master-ap, NULL */
+  uint32_t role;	/* master or slave */
+
+  // XXX Revisit this
+  // A pointer to the TTL TLV
+  // This is a hack to decrement
+  // the timer properly for 
+  // lldpneighbors output
+  struct lldp_tlv *ttl_tlv;
+
+  /* IEEE 802.1AB MSAP-specific counters */
+  uint16_t rxInfoTTL;
+};
+
 
 
 #endif

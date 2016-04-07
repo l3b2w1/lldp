@@ -11,6 +11,8 @@
 #include "lldp_neighbor.h"
 #include "tlv_common.h"
 #include "tlv.h"
+#include "msap.h"
+#include "common_func.h"
 
 int get_sys_desc()
 {
@@ -74,13 +76,39 @@ int get_sys_fqdn()
 	return 0;
 }
 
-
-char *lldp_neighbor_information(struct lldp_port *lldp_ports)
+char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 {
 	struct lldp_port *lldp_port = lldp_ports;
-	//struct lldp_msap *masp_cache = NULL;
-	struct lldp_tlv_list *tlv_list = NULL;
+	struct lldp_msap *msap_cache = NULL;
 	int neighbor_count = 0;
+	char *result = calloc(1, 2048);
+	uint8_t *p;
+	
+	while (lldp_port != NULL) {
+		neighbor_count = 0;
+
+		msap_cache = lldp_port->msap_cache;
+		
+		while (msap_cache != NULL) {
+			neighbor_count++;
+			printf("msap_id %d: ", msap_cache->length);
+			lldp_hex_dump(msap_cache->id, msap_cache->length);
+			printf("msap rxInfoTTL %d\n", msap_cache->rxInfoTTL);
+			printf("IPaddr %x\n", msap_cache->ipaddr);
+			msap_cache = msap_cache->next;
+
+		}
+		lldp_port = lldp_port->next;
+	}
+
+	return NULL;
+}
+
+char *lldp_neighbor_information(struct lldp_port *lldp_ports) {
+	struct lldp_port *lldp_port      = lldp_ports;
+	struct lldp_msap *msap_cache     = NULL;
+	struct lldp_tlv_list *tlv_list   = NULL;
+	int neighbor_count               = 0;
 	char *result = malloc(2048);
 	char *buffer = malloc(2048);
 	char *info_buffer = malloc(2048);
@@ -95,7 +123,91 @@ char *lldp_neighbor_information(struct lldp_port *lldp_ports)
 
 	sprintf(result, "\nOpenLLDP Neighbor Info: \n\n");
 
-	return NULL;
+	while(lldp_port != NULL) {
+		neighbor_count = 0;
+		memset(buffer, 0x0, 2048);
+		memset(info_buffer, 0x0, 2048);
+		memset(tmp_buffer, 0x0, 2048);
+		sprintf(buffer, "Interface '%s' has ", lldp_port->if_name);
 
+		strncat(result, buffer, 2048);
+
+		msap_cache = lldp_port->msap_cache;
+
+		while(msap_cache != NULL) {
+
+			neighbor_count++;
+
+			tlv_list = msap_cache->tlv_list;
+
+			sprintf(tmp_buffer, "Neighbor %d:\n", neighbor_count);
+
+			strncat(info_buffer, tmp_buffer, 2048);
+
+			memset(tmp_buffer, 0x0, 2048);
+
+
+			while(tlv_list != NULL) {
+				memset(tmp_buffer, 0x0, 2048);
+
+				if(tlv_list->tlv != NULL) {
+
+					tlv_name = tlv_typetoname(tlv_list->tlv->type);
+
+					if(tlv_name != NULL) {
+						sprintf(tmp_buffer, "\t%s: ", tlv_name);
+
+						strncat(info_buffer, tmp_buffer, 2048);
+
+						//free(tlv_name);    
+						//tlv_name = NULL;
+
+						memset(tmp_buffer, 0x0, 2048);
+#if 0
+
+						//tlv_subtype = decode_tlv_subtype(tlv_list->tlv);
+
+						if(tlv_subtype != NULL) {	    
+							sprintf(tmp_buffer, "\t%s\n", tlv_subtype);
+
+							strncat(info_buffer, tmp_buffer, 2048);
+
+							memset(tmp_buffer, 0x0, 2048);
+
+							free(tlv_subtype);
+							tlv_subtype = NULL;
+						}
+#endif
+					} else {
+						sprintf(tmp_buffer, "\t\tUnknown TLV Type (%d)\n", tlv_list->tlv->type);
+						strncat(info_buffer, tmp_buffer, 2048);
+					}
+
+				} else {
+					lldp_printf(MSG_DEBUG, "Yikes... NULL TLV in MSAP cache!\n");
+				}
+
+				tlv_list = tlv_list->next;
+			}
+
+			strncat(info_buffer, "\n", 2048);
+
+			msap_cache = msap_cache->next;
+		}
+
+		memset(buffer, 0x0, 2048);
+
+		sprintf(buffer, "%d LLDP Neighbors: \n\n", neighbor_count);
+		strncat(result, buffer, 2048);
+		strncat(result, info_buffer, 2048);
+
+		lldp_port = lldp_port->next;
+	}
+
+	free(tmp_buffer);
+	free(info_buffer);
+	free(buffer);
+
+	return(result);
 }
 

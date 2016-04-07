@@ -12,7 +12,8 @@
 #include "lldp_neighbor.h"
 #include "lldp_dunchong.h"
 
-u8 (*validate_tlv[128])(struct lldp_tlv *tlv) = {
+static uint8_t DCOUI[] = {0xA4, 0xFB, 0x8D};
+uint8_t (*validate_tlv[128])(struct lldp_tlv *tlv) = {
 	validate_end_of_lldp_pdu_tlv,		/* 0 End of LLDP PDU TLV */
 	validate_chassis_id_tlv,			/* 1 Chassis ID TLV */
 	validate_port_id_tlv,				/* 2 Port ID TLV */
@@ -25,6 +26,32 @@ u8 (*validate_tlv[128])(struct lldp_tlv *tlv) = {
 	/* 9 - 126 are reservecd and set to NULL in lldp_tlv_validator_init()
 	 * 127 is populated for validate_organizationally_specific_tlv in lldp_tlv_validator_init() */
 };
+
+uint8_t tlvcpy(struct lldp_tlv *dst, struct lldp_tlv *src)
+{
+  if(src == NULL)
+    return -1;
+
+  if(dst == NULL)
+    return -1;
+  
+  dst->type = src->type;
+  dst->length = src->length;
+  dst->value = calloc(1, dst->length);
+  
+  if(((dst->value != NULL) && (src->value != NULL)))
+    {
+      memcpy(dst->value, src->value, dst->length);
+    }
+  else
+    {
+      lldp_printf(MSG_DEBUG, "[ERROR] Couldn't allocate memory!!\n");
+      
+      return -1;
+    }
+  
+  return 0;
+}
 
 
 char *decode_tlv_subtype(struct lldp_tlv *tlv)
@@ -117,7 +144,7 @@ char *decode_iana_address_family(uint8_t family) {
 	}
 }
 
-char *decode_network_address(u8 *network_address)
+char *decode_network_address(uint8_t *network_address)
 {
 	char *result         = NULL;
 	uint8_t addr_len     = 0;
@@ -161,13 +188,50 @@ char *decode_network_address(u8 *network_address)
 			break;
 		default:
 			break;
-			//lldp_hex_strcat((u8*)result, addr, addr_len - 1);
+			//lldp_hex_strcat((uint8_t*)result, addr, addr_len - 1);
 	}
 
 	return result;
 }
 
-
+char *tlv_typetoname(uint8_t tlv_type)
+{
+    switch(tlv_type)
+    {
+        case CHASSIS_ID_TLV:
+            return "Chassis ID";
+            break;
+        case PORT_ID_TLV:
+            return "Port ID";
+            break;
+        case TIME_TO_LIVE_TLV:
+            return "Time To Live";
+            break;
+        case PORT_DESCRIPTION_TLV:
+            return "Port Description";
+            break;
+        case SYSTEM_NAME_TLV:
+            return "System Name";
+            break;
+        case SYSTEM_DESCRIPTION_TLV:
+            return "System Description";
+            break;
+        case SYSTEM_CAPABILITIES_TLV:
+            return "System Capabiltiies";
+            break;
+        case MANAGEMENT_ADDRESS_TLV:
+            return "Management Address";     
+            break;
+        case ORG_SPECIFIC_TLV:
+            return "Organizationally Specific";
+            break;
+        case END_OF_LLDPDU_TLV:
+            return "End Of LLDPDU";
+            break;
+        default:
+            return "Unknown"; 
+    };
+}
 
 struct lldp_tlv *initialize_tlv() 
 {
@@ -188,7 +252,7 @@ struct lldp_tlv *create_end_of_lldp_pdu_tlv()
     return tlv;
 }
 
-u8 validate_end_of_lldp_pdu_tlv(struct lldp_tlv *tlv)
+uint8_t validate_end_of_lldp_pdu_tlv(struct lldp_tlv *tlv)
 {
 	if (tlv->length != 0) {
         lldp_printf(MSG_ERROR, "[%s %d][ERROR] TLV type is 'End of LLDPDU' (0), but TLV length is %d when it should be 0!\n",
@@ -325,7 +389,7 @@ struct lldp_tlv *create_port_description_tlv(struct lldp_port *lldp_port)
 	return tlv;
 }
 
-u8 validate_port_description_tlv(struct lldp_tlv *tlv)
+uint8_t validate_port_description_tlv(struct lldp_tlv *tlv)
 {
 	return validate_length_max_255(tlv);
 }
@@ -463,11 +527,31 @@ uint8_t validate_management_address_tlv(struct lldp_tlv *tlv)
     return XVALIDTLV;
 }
 
+/* role, master ap or slave ap*/
+struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port, int8_t role)
+{
+    struct lldp_tlv* tlv = initialize_tlv();
+	uint8_t *vendor = "dunchong";
+	uint8_t subtype = LLDP_DUNCHONG_DEVICE_ROLE;
+
+    tlv->type = ORG_SPECIFIC_TLV;
+
+    tlv->length = 1 + 3 + 1;
+
+    tlv->value = calloc(1, tlv->length);
+
+	memcpy(tlv->value, DCOUI, 3);
+	memcpy(&tlv->value[3], &subtype, 1);
+	tlv->value[4] = role;
+
+    return tlv;
+}
+
 struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port)
 {
     struct lldp_tlv* tlv = initialize_tlv();
-	u8 *vendor = "dunchong";
-	u8 subtype = LLDP_DUNCHONG_VENDOR;
+	uint8_t *vendor = "dunchong";
+	uint8_t subtype = LLDP_DUNCHONG_VENDOR;
 
     tlv->type = ORG_SPECIFIC_TLV; // Constant defined in lldp_tlv.h
 
@@ -485,12 +569,12 @@ struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port)
 struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port)
 {
     struct lldp_tlv* tlv = initialize_tlv();
-	u8 ipaddr[] = {0x0a, 0x00, 0x01, 0xc3};
-	u8 subtype = LLDP_DUNCHONG_DEVICE_IPADDR;
+	uint8_t ipaddr[] = {0x0a, 0x00, 0x01, 0xc3};
+	uint8_t subtype = LLDP_DUNCHONG_DEVICE_IPADDR;
 
     tlv->type = ORG_SPECIFIC_TLV; // Constant defined in lldp_tlv.h
 
-    tlv->length = sizeof(ipaddr) + 3 + 1;
+    tlv->length = sizeof(ipaddr) + 3 + 1; //  ... + OUI(3) + subtype(1)
 
     tlv->value = calloc(1, tlv->length);
 
@@ -501,7 +585,7 @@ struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port)
     return tlv;
 }
 
-u8 validate_organizationally_specific_tlv(struct lldp_tlv *tlv)
+uint8_t validate_organizationally_specific_tlv(struct lldp_tlv *tlv)
 {
     if(tlv->length < 4 || tlv->length > 511)
     {
@@ -535,7 +619,7 @@ int validate_generic_tlv(struct lldp_tlv *tlv)
 }
 
 
-u8 tlvInitializeLLDP(struct lldp_port *lldp_port)
+uint8_t tlvInitializeLLDP(struct lldp_port *lldp_port)
 {
     return 0;
 }

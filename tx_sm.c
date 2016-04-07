@@ -29,6 +29,8 @@
 
 #include "lldp_linux_framer.h"
 
+extern int32_t dev_role;
+
 void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 {
 	struct eth_hdr tx_hdr;
@@ -98,7 +100,7 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	/* Vendor-specific TLVs */
 	add_tlv(create_dunchong_tlv(lldp_port), &tlv_list);
 	add_tlv(create_dunchong_ipaddr_tlv(lldp_port), &tlv_list);
-
+	add_tlv(create_role_tlv(lldp_port, dev_role), &tlv_list);
 
 	/* This TLV "MUST" be last */
 	add_tlv(create_end_of_lldp_pdu_tlv(lldp_port), &tlv_list);
@@ -154,7 +156,7 @@ u8 txInitializeLLDP(struct lldp_port *lldp_port)
 	/* recommended minimum by 802.1ab 10.5.3.3 */
 	lldp_port->tx.timers.reinitDelay = 2; 
 	lldp_port->tx.timers.msgTxHold = 4;
-	lldp_port->tx.timers.msgTxInterval = 5; // 15000 ~= 3 seconds
+	lldp_port->tx.timers.msgTxInterval = 3; /* seconds */
 	lldp_port->tx.timers.txDelay = 2;
 
 	/* unsure what to set these to ... */
@@ -261,7 +263,7 @@ void tx_decrement_timer(u16 *timer)
 
 void tx_display_timers(struct lldp_port *lldp_port) 
 {
-#if 1
+#if 0
 	lldp_printf(MSG_ERROR, "[IP] (%s) IP: %d.%d.%d.%d\n", lldp_port->if_name, lldp_port->source_ipaddr[0], lldp_port->source_ipaddr[1], lldp_port->source_ipaddr[2], lldp_port->source_ipaddr[3]);
 
 	lldp_printf(MSG_ERROR, "[TIMER] (%s) txTTL: %d\n", lldp_port->if_name, lldp_port->tx.txTTL);
