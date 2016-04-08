@@ -25,6 +25,7 @@
 #include "tlv.h"
 #include "tlv_common.h"
 #include "common_func.h"
+#include "msap.h"
 #include "lldp_dunchong.h"
 
 // This is set to argv[0] on startup.
@@ -40,8 +41,6 @@ static void usage();
 int initialize_lldp();
 void handle_segfault();
 void handle_hup();
-
-
 
 void walk_port_list() {
     struct lldp_port *lldp_port = lldp_ports;
@@ -433,11 +432,15 @@ out:
 void cleanupLLDP(struct lldp_port *lldp_port)
 {
 	lldp_port = lldp_ports;
+	struct lldp_msap *msap_cache = NULL;
+
 	lldp_printf(MSG_INFO, "[%s %d][INFO] Recv signal, cleanup lldp resourses\n", __FUNCTION__, __LINE__);
+
 	while (lldp_port != NULL) {
 		if (lldp_port->if_name != NULL) {
 			tlvCleanupLLDP(lldp_port);
 			socketCleanupLLDP(lldp_port);
+			cleanupMsap(lldp_port);
 		} else {
 			lldp_printf(MSG_INFO, "[%s %d][ERROR] Interface with name is NULL\n", __FUNCTION__, __LINE__);
 			/* Error interface with name %s is NULL */

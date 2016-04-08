@@ -541,8 +541,30 @@ struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port, int8_t role)
     tlv->value = calloc(1, tlv->length);
 
 	memcpy(tlv->value, DCOUI, 3);
-	memcpy(&tlv->value[3], &subtype, 1);
+memcpy(&tlv->value[3], &subtype, 1);
 	tlv->value[4] = role;
+
+    return tlv;
+}
+
+/* construct the allocated IP TLV */
+struct lldp_tlv *create_ip_tlv(struct lldp_port *lldp_port, uint32_t ipaddr)
+{
+    struct lldp_tlv* tlv = initialize_tlv();
+	uint8_t *vendor = "dunchong";
+	uint8_t subtype = LLDP_DUNCHONG_DEVICE_SET_IP;
+	uint32_t ip;
+
+    tlv->type = ORG_SPECIFIC_TLV;
+
+    tlv->length = sizeof(ipaddr) + 3 + 1;
+
+    tlv->value = calloc(1, tlv->length);
+
+	memcpy(tlv->value, DCOUI, 3);
+	memcpy(&tlv->value[3], &subtype, 1);
+	ip = htonl(ipaddr);
+	memcpy(&tlv->value[4], &ip, sizeof(ip));
 
     return tlv;
 }

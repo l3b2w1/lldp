@@ -144,6 +144,7 @@ uint8_t tlvcpy(struct lldp_tlv *dst, struct lldp_tlv *src);
 struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port);
 struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port);
 struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port, int8_t role);
+struct lldp_tlv *create_ip_tlv(struct lldp_port *lldp_port, uint32_t ipaddr);
 
 char *tlv_typetoname(uint8_t tlv_type);
 

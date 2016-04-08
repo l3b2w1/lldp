@@ -14,6 +14,12 @@
 #include "msap.h"
 #include "common_func.h"
 
+/* This wifi working-mode is 2G or 5G ? */
+uint32_t get_wifi_mode()
+{
+	
+}
+
 int get_sys_desc()
 {
 	int retval;

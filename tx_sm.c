@@ -37,7 +37,10 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	struct lldp_tlv_list *tlv_list = NULL;
 	struct lldp_flat_tlv *tlv = NULL;
 	struct lldp_tlv_list *tmp = NULL;
-	u32 frame_offset = 0;
+	uint32_t frame_offset = 0;
+
+	uint32_t ipaddr = 0x0a010002;
+
 #if 1
 	tx_hdr.dst[0] = 0xff;
 	tx_hdr.dst[1] = 0xff;
@@ -101,6 +104,7 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	add_tlv(create_dunchong_tlv(lldp_port), &tlv_list);
 	add_tlv(create_dunchong_ipaddr_tlv(lldp_port), &tlv_list);
 	add_tlv(create_role_tlv(lldp_port, dev_role), &tlv_list);
+	add_tlv(create_ip_tlv(lldp_port, ipaddr), &tlv_list);
 
 	/* This TLV "MUST" be last */
 	add_tlv(create_end_of_lldp_pdu_tlv(lldp_port), &tlv_list);
@@ -123,11 +127,88 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	destroy_tlv_list(&tlv_list);
 
 	if (frame_offset < 64)
-	  lldp_port->tx.sendsize = 64;
+		lldp_port->tx.sendsize = 64;
 	else
-	  lldp_port->tx.sendsize = frame_offset;
+		lldp_port->tx.sendsize = frame_offset;
 	//lldp_printf(MSG_DEBUG, "[%s %d] store info into lldp_port tx.frame buffer\n", __FUNCTION__, __LINE__);
 }
+
+
+void config_ip_for_slave(struct lldp_port *lldp_port, uint8_t *slavemac, uint32_t ipaddr)
+{
+	struct eth_hdr tx_hdr;
+	struct lldp_tlv_list *tlv_list = NULL;
+	struct lldp_flat_tlv *tlv = NULL;
+	struct lldp_tlv_list *tmp = NULL;
+	uint32_t frame_offset = 0;
+	uint8_t *p;
+	uint32_t ip;
+
+	p = slavemac;
+
+	ip = htonl(ipaddr);
+
+	tx_hdr.dst[0] = p[0];
+	tx_hdr.dst[1] = p[1];
+	tx_hdr.dst[2] = p[2];
+	tx_hdr.dst[3] = p[3];
+	tx_hdr.dst[4] = p[4];
+	tx_hdr.dst[5] = p[5];
+
+	tx_hdr.src[0] = lldp_port->source_mac[0];
+	tx_hdr.src[1] = lldp_port->source_mac[1];
+	tx_hdr.src[2] = lldp_port->source_mac[2];
+	tx_hdr.src[3] = lldp_port->source_mac[3];
+	tx_hdr.src[4] = lldp_port->source_mac[4];
+	tx_hdr.src[5] = lldp_port->source_mac[5];
+
+	tx_hdr.ethertype = htons(ETH_P_LLDP);
+
+	frame_offset = 0;
+
+	if (lldp_port->tx.frame != NULL)
+		memcpy(&lldp_port->tx.frame[frame_offset], &tx_hdr, sizeof(tx_hdr));
+
+	frame_offset += sizeof(struct eth_hdr);
+
+	/* This TLV *MUST* be first */
+	add_tlv(create_chassis_id_tlv(lldp_port), &tlv_list);
+
+	/* This TLV *MUST* be second */
+	add_tlv(create_port_id_tlv(lldp_port), &tlv_list);
+
+	/* This TLV *MUST* be third */
+	add_tlv(create_ttl_tlv(lldp_port), &tlv_list);
+
+	/* alloc IP for slave */
+	add_tlv(create_ip_tlv(lldp_port, htonl(ipaddr)), &tlv_list);
+
+	/* This TLV "MUST" be last */
+	add_tlv(create_end_of_lldp_pdu_tlv(lldp_port), &tlv_list);
+	
+	tmp = tlv_list;
+
+	while (tmp != NULL) {
+		tlv = flatten_tlv(tmp->tlv);
+
+		if (lldp_port->tx.frame != NULL)
+			memcpy(&lldp_port->tx.frame[frame_offset], tlv->tlv, tlv->size);
+
+		frame_offset += tlv->size;
+
+		destroy_flattened_tlv(&tlv);
+
+		tmp = tmp->next;
+	}
+
+	destroy_tlv_list(&tlv_list);
+
+	if (frame_offset < 64)
+		lldp_port->tx.sendsize = 64;
+	else
+		lldp_port->tx.sendsize = frame_offset;
+}
+
 
 void mibConstructShutdownLLDPPDU(struct lldp_port *lldp_port)
 {
@@ -145,7 +226,7 @@ void mibConstructShutdownLLDPPDU(struct lldp_port *lldp_port)
 	free(end_tlv);
 }
 
-u8 txInitializeLLDP(struct lldp_port *lldp_port)
+uint8_t txInitializeLLDP(struct lldp_port *lldp_port)
 {
 	/* As per IEEE802.1AB section 10.1.1 */
 	lldp_port->tx.somethingChangedLocal = 0;
@@ -167,7 +248,7 @@ u8 txInitializeLLDP(struct lldp_port *lldp_port)
 	return 0;
 }
 
-u8 txFrame(struct lldp_port *lldp_port)
+uint8_t txFrame(struct lldp_port *lldp_port)
 {
 	lldp_write(lldp_port);
 
@@ -201,7 +282,10 @@ void tx_do_tx_idle(struct lldp_port *lldp_port)
 
 void tx_do_tx_info_frame(struct lldp_port *lldp_port) {
 	/* As per 802.1AB 10.5.4.3 */
+	uint8_t mac[] = {0x11, 0x22, 0x01, 0x99, 0x00};
 	mibConstrInfoLLDPDU(lldp_port);
+	txFrame(lldp_port);
+	config_ip_for_slave(lldp_port, mac, 0x0a000b0b);
 	txFrame(lldp_port);
 }
 
@@ -247,7 +331,7 @@ void txGlobalStatemachineRun(struct lldp_port *lldp_port)
 	};
 }
 
-u16 min(u16 value1, u16 value2)
+uint16_t min(uint16_t value1, uint16_t value2)
 {
 	if(value1 < value2)
 		return value1;
@@ -255,7 +339,7 @@ u16 min(u16 value1, u16 value2)
 	return value2;
 }
 
-void tx_decrement_timer(u16 *timer) 
+void tx_decrement_timer(uint16_t *timer) 
 {
 	if((*timer) > 0)
 	  (*timer)--;
@@ -281,7 +365,7 @@ void tx_do_update_timers(struct lldp_port *lldp_port) {
 	tx_display_timers(lldp_port);
 }
 
-char *txStateFromID(u8 state) {
+char *txStateFromID(uint8_t state) {
 	switch(state) {
 		case TX_LLDP_INITIALIZE:
 			return "TX_LLDP_INITIALIZE";
@@ -330,7 +414,7 @@ void txStatemachineRun(struct lldp_port *lldp_port)
 
 
 
-void txChangeToState(struct lldp_port *lldp_port, u8 state)
+void txChangeToState(struct lldp_port *lldp_port, uint8_t state)
 {
 	switch (state) {
 		case TX_LLDP_INITIALIZE:

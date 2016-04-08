@@ -13,12 +13,12 @@
 
 
 /* Defined by the 802.1AB specification */
-u8 txInitializeLLDP(struct lldp_port *lldp_port);
+uint8_t txInitializeLLDP(struct lldp_port *lldp_port);
 void mibConstrInfoLLDPDU(struct lldp_port *lldp_port);
 void mibConstrShutdownLLDPDU();
-u8 txFrame();
+uint8_t txFrame();
 void txStatemachineRun(struct lldp_port *lldp_port);
-void txChangeToState(struct lldp_port *lldp_port, u8 state);
+void txChangeToState(struct lldp_port *lldp_port, uint8_t state);
 void tx_do_tx_lldp_initialize(struct lldp_port *lldp_port);
 /* End Defined by the 802.1AB specification */
 

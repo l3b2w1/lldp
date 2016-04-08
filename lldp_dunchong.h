@@ -10,6 +10,8 @@
 #define LLDP_DUNCHONG_DEVICE_IPADDR		3 /* should allocated by master ap */	
 #define LLDP_DUNCHONG_DEVICE_VERSION	4 /* software version */	
 #define LLDP_DUNCHONG_DEVICE_ROLE		5 /* master or slave */
+#define LLDP_DUNCHONG_DEVICE_SET_IP		6 /* alloc ip addr for slave */
+
 
 #define LLDP_DUNCHONG_ROLE_MASTER		0
 #define LLDP_DUNCHONG_ROLE_SLAVE		1	

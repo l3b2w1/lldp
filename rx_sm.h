@@ -15,16 +15,16 @@
 
 
 /* Defined by the 802.1AB specification */
-u8 mibDeleteObjects(struct lldp_port *lldp);
-u8 mibUpdateObjects(struct lldp_port *lldp);
-u8 rxInitializeLLDP(struct lldp_port *lldp);
+uint8_t mibDeleteObjects(struct lldp_port *lldp);
+uint8_t mibUpdateObjects(struct lldp_port *lldp);
+uint8_t rxInitializeLLDP(struct lldp_port *lldp);
 int rxProcessFrame(struct lldp_port *lldp_port);
 /* End Defined by the 802.1AB specification */
 
 /* Utility functions not defined in the specification */
-void rxChangeToState(struct lldp_port *lldp_port, u8 state);
-void rxBadFrameInfo(u8 badFrameCount);
-char *rxStateFromID(u8 state);
+void rxChangeToState(struct lldp_port *lldp_port, uint8_t state);
+void rxBadFrameInfo(uint8_t badFrameCount);
+char *rxStateFromID(uint8_t state);
 void rxStatemachineRun(struct lldp_port *lldp_port);
 /* End Utility functions not defined in the specification */
 

@@ -42,8 +42,8 @@ void show_lldp_pdu(uint8_t *buf, uint32_t size)
 	int i, j, line, col;
 	line = size / 16;
 	col = size % 16;
-	u8 lastline[16] = {0};
-	u8 *p;
+	uint8_t lastline[16] = {0};
+	uint8_t *p;
 	
 	if (!buf) {
 		lldp_printf(MSG_WARNING, "[%s %d][WARNING]send buffer is NULL, now return\n",

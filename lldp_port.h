@@ -6,8 +6,6 @@
 #include <time.h>
 #include <linux/if_ether.h>
 
-#include "datatype.h"	// linux/types.h
-
 #define MIN_INTERFACES   1
 #define MAX_INTERFACES  16
 
@@ -19,9 +17,9 @@
 
 
 struct eth_hdr {
-	u8 dst[6];
-	u8 src[6];
-	u16 ethertype;
+	uint8_t dst[6];
+	uint8_t src[6];
+	uint16_t ethertype;
 };
 
 enum portAdminStatus {
@@ -37,7 +35,7 @@ enum portAdminStatus {
 	Tied to the tx state machine
 	*/
 struct lldp_tx_port_statistics {
-	u64 statsFramesOutTotal; /**< Defined by IEEE802.1AB section 10.5.2.1 > */
+	uint64_t statsFramesOutTotal; /**< Defined by IEEE802.1AB section 10.5.2.1 > */
 };
 
 /**
@@ -47,51 +45,51 @@ struct lldp_tx_port_statistics {
 	0 < n < 6553 as per the IEEE802.1AB specification.
 	*/
 struct lldp_tx_port_timers {
-	u16 reinitDelay;	/**< IEEE 802.1AB 10.5.3 */
-	u16 msgTxHold;		/**< IEEE 802.1AB 10.5.3 */
-	u16 msgTxInterval;		/**< IEEE 802.1AB 10.5.3 */
-	u16 txDelay;		 /**< IEEE 802.1AB 10.5.3 */
+	uint16_t reinitDelay;	/**< IEEE 802.1AB 10.5.3 */
+	uint16_t msgTxHold;		/**< IEEE 802.1AB 10.5.3 */
+	uint16_t msgTxInterval;		/**< IEEE 802.1AB 10.5.3 */
+	uint16_t txDelay;		 /**< IEEE 802.1AB 10.5.3 */
 	
-	u16 txTTR;	/**< IEEE 802.1AB 10.5.3 - transmit on expire. */
+	uint16_t txTTR;	/**< IEEE 802.1AB 10.5.3 - transmit on expire. */
 	
 	/* not sure what this is for */
-	u16 txShutdownWhile;
-	u16 txDelayWhile;
+	uint16_t txShutdownWhile;
+	uint16_t txDelayWhile;
 };
 
 struct lldp_tx_port {
-    u8 *frame;    /**< The tx frame buffer */
-    u64 sendsize; /**< The size of our tx frame */
-    u8 state;     /**< The tx state for this interface */
-    u8 somethingChangedLocal; /**< IEEE 802.1AB var (from where?) */
-    u16 txTTL;/**< IEEE 802.1AB var (from where?) */
+    uint8_t *frame;    /**< The tx frame buffer */
+    uint64_t sendsize; /**< The size of our tx frame */
+    uint8_t state;     /**< The tx state for this interface */
+    uint8_t somethingChangedLocal; /**< IEEE 802.1AB var (from where?) */
+    uint16_t txTTL;/**< IEEE 802.1AB var (from where?) */
     struct lldp_tx_port_timers timers; /**< The lldp tx state machine timers for this interface */
     struct lldp_tx_port_statistics statistics; /**< The lldp tx statistics for this interface */
 };
 
 struct lldp_rx_port_statistics {
-    u64 statsAgeoutsTotal;
-    u64 statsFramesDiscardedTotal;
-    u64 statsFramesInErrorsTotal;
-    u64 statsFramesInTotal;
-    u64 statsTLVsDiscardedTotal;
-    u64 statsTLVsUnrecognizedTotal;
+    uint64_t statsAgeoutsTotal;
+    uint64_t statsFramesDiscardedTotal;
+    uint64_t statsFramesInErrorsTotal;
+    uint64_t statsFramesInTotal;
+    uint64_t statsTLVsDiscardedTotal;
+    uint64_t statsTLVsUnrecognizedTotal;
 };
 
 struct lldp_rx_port_timers {
-	u16 tooManyNeighborsTimer;
-	u16 rxTTL;
+	uint16_t tooManyNeighborsTimer;
+	uint16_t rxTTL;
 };
 
 struct lldp_rx_port {
-	u8 *frame;
+	uint8_t *frame;
 	ssize_t recvsize;
-	u8 state;
-	u8 badframe;
-	u8 rcvFrame;
-	u8 rxInfoAge;
-	u8 somethingChangedRemote;
-	u8 tooManyNeighbors;
+	uint8_t state;
+	uint8_t badframe;
+	uint8_t rcvFrame;
+	uint8_t rxInfoAge;
+	uint8_t somethingChangedRemote;
+	uint8_t tooManyNeighbors;
 	struct lldp_rx_port_timers timers;
 	struct lldp_rx_port_statistics statistics;
 	//    struct lldp_msap_cache *msap;
@@ -101,29 +99,37 @@ struct lldp_port {
   struct lldp_port *next;
   int socket;        // The socket descriptor for this interface.
   char *if_name;     // The interface name.
-  u32 if_index; // The interface index.
-  u32 mtu;      // The interface MTU.
-  u8 source_mac[6];
-  u8 source_ipaddr[4];
+  uint32_t if_index; // The interface index.
+  uint32_t mtu;      // The interface MTU.
+  uint8_t source_mac[6];
+  uint8_t source_ipaddr[4];
   struct lldp_rx_port rx;
   struct lldp_tx_port tx;
-  u8 portEnabled;
-  u8 adminStatus;
+  uint8_t portEnabled;
+  uint8_t adminStatus;
+  
+  /*
+   * slave mac address, the unicast frame sended to slave
+   * fill it before calling config_XXX_for_slave() 
+   */
+  uint8_t dest_mac[6]; 
+  int32_t wifimode; /* wifi network interface working-mode 2G/5G ? */
+
   
   /* I'm not sure where this goes... the state machine indicates it's per-port */
-  u8 rxChanges;
+  uint8_t rxChanges;
   
   // I'm really unsure about the best way to handle this... 
-  u8 tick;
+  uint8_t tick;
   time_t last_tick;
   
   struct lldp_msap *msap_cache;
 
 
   // 802.1AB Appendix G flag variables.
-  u8  auto_neg_status;
-  u8 auto_neg_advertized_capabilities;
-  u8 operational_mau_type;
+  uint8_t  auto_neg_status;
+  uint8_t auto_neg_advertized_capabilities;
+  uint8_t operational_mau_type;
 };
 
 struct lldp_msap {

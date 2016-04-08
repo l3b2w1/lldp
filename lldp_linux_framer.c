@@ -35,7 +35,7 @@ ssize_t lldp_read(struct lldp_port *lldp_port) {
 /* get the MAC address of an interface */
 static int _getmac(struct lldp_port *lldp_port)
 {
-	u8 *p;
+	uint8_t *p;
 	struct ifreq *ifr = calloc(1, sizeof(struct ifreq));
 	int retval = 0;
 	

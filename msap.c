@@ -11,6 +11,46 @@ struct lldp_msap *create_msap(struct lldp_tlv *tlv1, struct lldp_tlv *tlv2) {
 	return NULL;
 }
 
+
+void destroy_list(struct lldp_tlv_list **tlv_list) 
+{
+	struct lldp_tlv_list *current = *tlv_list;
+	
+	if (!current)
+		;/* warning, to delete empty list */
+	
+	while (current != NULL) {
+		current = current->next;
+		
+		free((*tlv_list)->tlv->value);
+		free((*tlv_list)->tlv);
+		
+		/* free tlv list node */
+		free(*tlv_list);	
+		
+		(*tlv_list) = current;
+	}
+}
+
+/* cleanup neighbors info */
+void cleanupMsap(struct lldp_port *lldp_port)
+{
+	struct lldp_msap *curr, *tmp; 
+
+	curr = lldp_port->msap_cache;
+
+	if (!curr)
+		return;
+
+	while (curr) {
+		free(curr->id);
+		tmp = curr;
+		curr = curr->next;
+		free(tmp);
+	}
+}
+
+
 void iterate_msap_cache(struct lldp_msap *msap_cache){
   while(msap_cache != NULL) {
     lldp_printf(MSG_DEBUG, "MSAP cache: %X\n", msap_cache);
