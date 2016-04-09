@@ -15,6 +15,8 @@
 //#define ETH_P_DUNCHONG		ETH_P_LLDP
 #define ETH_P_DUNCHONG		ETH_P_ALL
 
+#define TRUE	1
+#define FALSE	0
 
 struct eth_hdr {
 	uint8_t dst[6];

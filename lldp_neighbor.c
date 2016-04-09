@@ -91,18 +91,12 @@ int get_sys_fqdn()
 	return 0;
 }
 
-
+#define LLDP_NEIGHBOR_INFO_FILE_PATH	"/tmp/lldp_neighbors_info.log"
+/* store neighbor information into file */
 uint8_t *lldp_store_neighbor_info(uint8_t *buf)
 {
 
 }
-//if ((dev_role == LLDP_DUNCHONG_ROLE_MASTER) && (role == 
-
-/*
- * dev_role == master
- *
- *
- */
 
 char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 {

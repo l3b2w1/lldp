@@ -36,12 +36,15 @@ u8 rxInitializeLLDP(struct lldp_port *lldp_port) {
 
 extern int32_t dev_role;
   
-void rxBadFrameInfo(uint8_t frameErrors) {
+void rxBadFrameInfo(uint8_t frameErrors) 
+{
 	lldp_printf(MSG_WARNING, "[WARNING] This frame had %d errors!\n", frameErrors);
 }
 
+int32_t alloc_ip_for_slave(uint8_t *ipaddr)
+{
 
-
+}
 /* Defined by the IEEE 802.1AB standard */
 int rxProcessFrame(struct lldp_port *lldp_port)
 {
@@ -240,7 +243,9 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
 	} while (tlv_type != 0);
 
-	printf(">>>>>>>>> local_role %d, remote_role %d, ipaddr %d.%d.%d.%d, have_dc_msap %d\n", dev_role, role, ipaddr[0], 
+	lldp_printf(MSG_DEBUG, "[%s %d]local_role %d, remote_role %d, ipaddr %d.%d.%d.%d, have_dc_msap %d\n", 
+				__FUNCTION__, __LINE__,
+				dev_role, role, ipaddr[0], 
 				ipaddr[1], ipaddr[2], ipaddr[3],
 				have_dc_msap);
 
@@ -262,15 +267,16 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 		msap_cache->rxInfoTTL = lldp_port->rx.timers.rxTTL;
 		memcpy(msap_cache->ipaddr, ipaddr, 4);
 
-		//lldp_printf(MSG_DEBUG, "Iterating MSAP Cache...\n");
+#if 0
+		lldp_printf(MSG_DEBUG, "Iterating MSAP Cache...\n");
 
-		//iterate_msap_cache(msap_cache);
+		iterate_msap_cache(msap_cache);
 
-		//lldp_printf(MSG_DEBUG, "Updating MSAP Cache...\n");
+		lldp_printf(MSG_DEBUG, "Updating MSAP Cache...\n");
 
-		//lldp_printf(MSG_DEBUG, "Setting rxInfoTTL to: %d\n", lldp_port->rx.timers.rxTTL);
+		lldp_printf(MSG_DEBUG, "Setting rxInfoTTL to: %d\n", lldp_port->rx.timers.rxTTL);
 
-
+#endif
 		update_msap_cache(lldp_port, msap_cache);
 
 		if(msap_tlv1 != NULL) {
@@ -298,3 +304,100 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
 	return badFrame;
 }
+
+uint8_t mibDeleteObjects(struct lldp_port *lldp_port)
+{
+	struct lldp_msap *curr = lldp_port->msap_cache;
+	struct lldp_msap *tail = NULL;
+	struct lldp_msap *tmp  = NULL;
+
+	while (curr != NULL) {
+		if (curr->rxInfoTTL <= 0) {
+
+			/* if the top list is expired, then ajust the list
+			 * before we delete the node */
+			if (curr == lldp_port->msap_cache)
+				lldp_port->msap_cache = curr->next;
+			else
+				tail->next = curr->next;
+
+			tmp = curr;
+			curr = curr->next;
+
+			if (tmp->id != NULL)
+				free(tmp->id);
+
+			free(tmp);
+		} else {
+			tail = curr;
+			curr = curr->next;
+		}
+	}
+
+}
+
+void rx_decrement_timer(uint16_t *timer) 
+{
+    if ((*timer) > 0)
+        (*timer)--;
+}
+
+void rx_display_timers(struct lldp_port *lldp_port) 
+{
+	struct lldp_msap *msap_cache = lldp_port->msap_cache;
+
+	while(msap_cache != NULL) {
+		lldp_printf(MSG_DEBUG, "[TIMER] (%s with MSAP: ", lldp_port->if_name);
+		//prefix_hex_printf(NULL, msap_cache->id, msap_cache->length);
+		lldp_printf(MSG_DEBUG, ") rxInfoTTL: %d\n", msap_cache->rxInfoTTL);
+
+		msap_cache = msap_cache->next;
+	}
+
+	lldp_printf(MSG_DEBUG, "[TIMER] (%s) tooManyNeighborsTimer: %d\n", lldp_port->if_name, lldp_port->rx.timers.tooManyNeighborsTimer);
+}
+
+
+void rx_do_update_timers(struct lldp_port* lldp_port)
+{
+	struct lldp_msap *msap_cache = lldp_port->msap_cache;
+
+	while (msap_cache != NULL) {
+		rx_decrement_timer(&msap_cache->rxInfoTTL);
+
+		if (msap_cache->rxInfoTTL <= 0)
+			lldp_port->rx.rxInfoAge = TRUE;
+
+		msap_cache = msap_cache->next;
+	}
+
+	//rx_decrement_timer(&lldp_port->rx.timers.tooManyNeighborsTimer);
+
+	//rx_display_timers(lldp_port);
+}
+
+char *rxStateFromID(uint8_t state)
+{
+    switch(state)
+    {
+        case LLDP_WAIT_PORT_OPERATIONAL:
+            return "LLDP_WAIT_PORT_OPERATIONAL";
+        case DELETE_AGED_INFO:
+            return "DELETE_AGED_INFO";
+        case RX_LLDP_INITIALIZE:
+            return "RX_LLDP_INITIALIZE";
+        case RX_WAIT_FOR_FRAME:
+            return "RX_WAIT_FOR_FRAME";
+        case RX_FRAME:
+            return "RX_FRAME";
+        case DELETE_INFO:
+            return "DELETE_INFO";
+        case UPDATE_INFO:
+            return "UPDATE_INFO";
+    };
+
+    lldp_printf(MSG_ERROR, "[ERROR] Unknown RX State: '%d'\n", state);
+    return "Unknown";
+}
+
+
