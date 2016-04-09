@@ -13,11 +13,20 @@
 #include "tlv.h"
 #include "msap.h"
 #include "common_func.h"
+#include "lldp_dunchong.h"
 
+int32_t dev_role;
 /* This wifi working-mode is 2G or 5G ? */
-uint32_t get_wifi_mode()
+int32_t get_wifi_mode()
 {
 	
+}
+
+int32_t get_dev_role()
+{
+	printf("[%s %d]device role %d\n", __FUNCTION__, __LINE__, dev_role);
+	return dev_role;
+	return LLDP_DUNCHONG_ROLE_MASTER;
 }
 
 int get_sys_desc()
@@ -82,13 +91,29 @@ int get_sys_fqdn()
 	return 0;
 }
 
+
+uint8_t *lldp_store_neighbor_info(uint8_t *buf)
+{
+
+}
+//if ((dev_role == LLDP_DUNCHONG_ROLE_MASTER) && (role == 
+
+/*
+ * dev_role == master
+ *
+ *
+ */
+
 char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 {
 	struct lldp_port *lldp_port = lldp_ports;
 	struct lldp_msap *msap_cache = NULL;
-	int neighbor_count = 0;
-	char *result = calloc(1, 2048);
-	uint8_t *p;
+	int32_t neighbor_count = 0;
+	uint8_t neighbors[1024] = {0};
+	uint8_t *p, *pdata;
+	int32_t size;
+
+	p = neighbors;
 	
 	while (lldp_port != NULL) {
 		neighbor_count = 0;
@@ -97,19 +122,36 @@ char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 		
 		while (msap_cache != NULL) {
 			neighbor_count++;
-			printf("msap_id %d: ", msap_cache->length);
-			lldp_hex_dump(msap_cache->id, msap_cache->length);
-			printf("msap rxInfoTTL %d\n", msap_cache->rxInfoTTL);
-			printf("IPaddr %x\n", msap_cache->ipaddr);
-			msap_cache = msap_cache->next;
+			pdata = msap_cache->id;
+			prefix_hex_dump("get msap id", msap_cache->id, msap_cache->length);
+			size = sprintf(p, "%02x:%02x:%02x:%02x:%02x:%02x;", 
+						pdata[0],pdata[1],pdata[2], pdata[3], pdata[4], pdata[5]);
+			p += size;
 
+			pdata = (uint8_t*)&msap_cache->ipaddr;
+			size = sprintf(p, "%d.%d.%d.%d;", pdata[0],pdata[1],pdata[2], pdata[3]);
+			p += size;
+
+			*p++ = '2';// 2G module
+			*p++ = '\r';
+			*p++ = '\n';
+
+			lldp_printf(MSG_DEBUG, "[%s %d]msap rxInfoTTL %d\n", 
+						__FUNCTION__, __LINE__, msap_cache->rxInfoTTL);
+			msap_cache = msap_cache->next;
 		}
+
+		*(p-1) = 0;
+
 		lldp_port = lldp_port->next;
 	}
+	printf("%s\n", neighbors);
+
+	/* here to store neighbors info into files  */
 
 	return NULL;
 }
-
+#if 0
 char *lldp_neighbor_information(struct lldp_port *lldp_ports) {
 	struct lldp_port *lldp_port      = lldp_ports;
 	struct lldp_msap *msap_cache     = NULL;
@@ -216,4 +258,6 @@ char *lldp_neighbor_information(struct lldp_port *lldp_ports) {
 
 	return(result);
 }
+#endif
+
 

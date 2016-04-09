@@ -3,7 +3,17 @@
 #include "common_func.h"
 #include "lldp_debug.h"
 
-void lldp_hex_dump(uint8_t *buf, uint32_t size)
+void prefix_hex_dump(char *info, uint8_t *buf, int32_t size)
+{
+	int i;
+	printf("%s	", info);
+	for (i = 0; i < size; ++i)
+		printf("%02x ", buf[i]);
+	printf("\n");
+}
+
+
+void lldp_hex_dump(uint8_t *buf, int32_t size)
 {
 	int i, j, line, col;
 	line = size / 16;
@@ -37,7 +47,7 @@ void lldp_hex_dump(uint8_t *buf, uint32_t size)
 	}
 }
 
-void show_lldp_pdu(uint8_t *buf, uint32_t size)
+void show_lldp_pdu(uint8_t *buf, int32_t size)
 {
 	int i, j, line, col;
 	line = size / 16;

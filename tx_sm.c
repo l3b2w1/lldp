@@ -29,8 +29,6 @@
 
 #include "lldp_linux_framer.h"
 
-extern int32_t dev_role;
-
 void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 {
 	struct eth_hdr tx_hdr;
@@ -103,8 +101,8 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	/* Vendor-specific TLVs */
 	add_tlv(create_dunchong_tlv(lldp_port), &tlv_list);
 	add_tlv(create_dunchong_ipaddr_tlv(lldp_port), &tlv_list);
-	add_tlv(create_role_tlv(lldp_port, dev_role), &tlv_list);
-	add_tlv(create_ip_tlv(lldp_port, ipaddr), &tlv_list);
+	add_tlv(create_role_tlv(lldp_port), &tlv_list);
+	//add_tlv(create_slave_ipaddr_tlv(lldp_port), &tlv_list);
 
 	/* This TLV "MUST" be last */
 	add_tlv(create_end_of_lldp_pdu_tlv(lldp_port), &tlv_list);
@@ -134,7 +132,7 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 }
 
 
-void config_ip_for_slave(struct lldp_port *lldp_port, uint8_t *slavemac, uint32_t ipaddr)
+void config_ip_for_slave(struct lldp_port *lldp_port)
 {
 	struct eth_hdr tx_hdr;
 	struct lldp_tlv_list *tlv_list = NULL;
@@ -143,10 +141,6 @@ void config_ip_for_slave(struct lldp_port *lldp_port, uint8_t *slavemac, uint32_
 	uint32_t frame_offset = 0;
 	uint8_t *p;
 	uint32_t ip;
-
-	p = slavemac;
-
-	ip = htonl(ipaddr);
 
 	tx_hdr.dst[0] = p[0];
 	tx_hdr.dst[1] = p[1];
@@ -181,7 +175,7 @@ void config_ip_for_slave(struct lldp_port *lldp_port, uint8_t *slavemac, uint32_
 	add_tlv(create_ttl_tlv(lldp_port), &tlv_list);
 
 	/* alloc IP for slave */
-	add_tlv(create_ip_tlv(lldp_port, htonl(ipaddr)), &tlv_list);
+	add_tlv(create_slave_ipaddr_tlv(lldp_port), &tlv_list);
 
 	/* This TLV "MUST" be last */
 	add_tlv(create_end_of_lldp_pdu_tlv(lldp_port), &tlv_list);
@@ -252,7 +246,7 @@ uint8_t txFrame(struct lldp_port *lldp_port)
 {
 	lldp_write(lldp_port);
 
-	show_lldp_pdu(lldp_port->tx.frame, lldp_port->tx.sendsize);
+	//show_lldp_pdu(lldp_port->tx.frame, lldp_port->tx.sendsize);
 
 	if (lldp_port->tx.frame != NULL)
 	  memset(&lldp_port->tx.frame[0], 0x0, lldp_port->tx.sendsize);
@@ -282,10 +276,13 @@ void tx_do_tx_idle(struct lldp_port *lldp_port)
 
 void tx_do_tx_info_frame(struct lldp_port *lldp_port) {
 	/* As per 802.1AB 10.5.4.3 */
-	uint8_t mac[] = {0x11, 0x22, 0x01, 0x99, 0x00};
 	mibConstrInfoLLDPDU(lldp_port);
 	txFrame(lldp_port);
-	config_ip_for_slave(lldp_port, mac, 0x0a000b0b);
+}
+	
+void tx_do_tx_setip_frame(struct lldp_port *lldp_port)
+{
+	config_ip_for_slave(lldp_port);
 	txFrame(lldp_port);
 }
 

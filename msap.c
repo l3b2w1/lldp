@@ -51,20 +51,25 @@ void cleanupMsap(struct lldp_port *lldp_port)
 }
 
 
-void iterate_msap_cache(struct lldp_msap *msap_cache){
-  while(msap_cache != NULL) {
-    lldp_printf(MSG_DEBUG, "MSAP cache: %X\n", msap_cache);
+void iterate_msap_cache(struct lldp_msap *msap_cache) 
+{
+	while(msap_cache != NULL) {
+		lldp_printf(MSG_DEBUG, "MSAP cache: %X\n", msap_cache);
 
-    lldp_printf(MSG_DEBUG, "MSAP ID: ");
-    //debug_hex_printf(MSG_DEBUG, msap_cache->id, msap_cache->length);
-    lldp_hex_dump(msap_cache->id, msap_cache->length);
-    
-    lldp_printf(MSG_DEBUG, "MSAP Length: %X\n", msap_cache->length);
+		lldp_printf(MSG_DEBUG, "MSAP ID: ");
+		//debug_hex_printf(MSG_DEBUG, msap_cache->id, msap_cache->length);
+		lldp_hex_dump(msap_cache->id, msap_cache->length);
 
-    lldp_printf(MSG_DEBUG, "MSAP Next: %X\n", msap_cache->next);
+		lldp_printf(MSG_DEBUG, "MSAP IpAddr: %X\n", msap_cache->ipaddr);
 
-	msap_cache = msap_cache->next;
-  }
+		lldp_printf(MSG_DEBUG, "MSAP rxInfoTTL: %X\n", msap_cache->rxInfoTTL);
+
+		lldp_printf(MSG_DEBUG, "MSAP Length: %X\n", msap_cache->length);
+
+		lldp_printf(MSG_DEBUG, "MSAP Next: %X\n", msap_cache->next);
+
+		msap_cache = msap_cache->next;
+	}
 }
 
 
@@ -75,7 +80,7 @@ void update_msap_cache(struct lldp_port *lldp_port, struct lldp_msap* msap_cache
 	while(old_cache != NULL) {
 
 		if(old_cache->length == new_cache->length) {
-			lldp_printf(MSG_DEBUG, "MSAP Length: %X\n", old_cache->length);
+			//lldp_printf(MSG_DEBUG, "MSAP Length: %X\n", old_cache->length);
 
 			if(memcmp(old_cache->id, new_cache->id, new_cache->length) == 0) {
 				lldp_printf(MSG_DEBUG, "MSAP Cache Hit on %s\n", lldp_port->if_name);
@@ -97,7 +102,7 @@ void update_msap_cache(struct lldp_port *lldp_port, struct lldp_msap* msap_cache
 
 		}
 
-		lldp_printf(MSG_DEBUG, "Checking next MSAP entry...\n");
+		//lldp_printf(MSG_DEBUG, "Checking next MSAP entry...\n");
 
 		old_cache = old_cache->next;
 	}

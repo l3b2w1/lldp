@@ -527,11 +527,10 @@ uint8_t validate_management_address_tlv(struct lldp_tlv *tlv)
     return XVALIDTLV;
 }
 
-/* role, master ap or slave ap*/
-struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port, int8_t role)
+/* playing role, master ap or slave ap*/
+struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port)
 {
     struct lldp_tlv* tlv = initialize_tlv();
-	uint8_t *vendor = "dunchong";
 	uint8_t subtype = LLDP_DUNCHONG_DEVICE_ROLE;
 
     tlv->type = ORG_SPECIFIC_TLV;
@@ -541,34 +540,33 @@ struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port, int8_t role)
     tlv->value = calloc(1, tlv->length);
 
 	memcpy(tlv->value, DCOUI, 3);
-memcpy(&tlv->value[3], &subtype, 1);
-	tlv->value[4] = role;
+	memcpy(&tlv->value[3], &subtype, 1);
+	tlv->value[4] = lldp_port->role;
 
     return tlv;
 }
 
 /* construct the allocated IP TLV */
-struct lldp_tlv *create_ip_tlv(struct lldp_port *lldp_port, uint32_t ipaddr)
+struct lldp_tlv *create_slave_ipaddr_tlv(struct lldp_port *lldp_port)
 {
     struct lldp_tlv* tlv = initialize_tlv();
-	uint8_t *vendor = "dunchong";
 	uint8_t subtype = LLDP_DUNCHONG_DEVICE_SET_IP;
 	uint32_t ip;
 
     tlv->type = ORG_SPECIFIC_TLV;
 
-    tlv->length = sizeof(ipaddr) + 3 + 1;
+    tlv->length = 4 + 3 + 1;
 
     tlv->value = calloc(1, tlv->length);
 
 	memcpy(tlv->value, DCOUI, 3);
 	memcpy(&tlv->value[3], &subtype, 1);
-	ip = htonl(ipaddr);
-	memcpy(&tlv->value[4], &ip, sizeof(ip));
+	memcpy(&tlv->value[4], &lldp_port->slaveip, 4);
 
     return tlv;
 }
 
+/* device vendor name */
 struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port)
 {
     struct lldp_tlv* tlv = initialize_tlv();
@@ -588,21 +586,21 @@ struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port)
     return tlv;
 }
 
+/* device local interface ip address */
 struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port)
 {
     struct lldp_tlv* tlv = initialize_tlv();
-	uint8_t ipaddr[] = {0x0a, 0x00, 0x01, 0xc3};
 	uint8_t subtype = LLDP_DUNCHONG_DEVICE_IPADDR;
 
     tlv->type = ORG_SPECIFIC_TLV; // Constant defined in lldp_tlv.h
 
-    tlv->length = sizeof(ipaddr) + 3 + 1; //  ... + OUI(3) + subtype(1)
+    tlv->length = 4 + 3 + 1; // ipv4(4) + OUI(3) + subtype(1)
 
     tlv->value = calloc(1, tlv->length);
 
 	memcpy(tlv->value, DCOUI, 3);
 	memcpy(&tlv->value[3], &subtype, 1);
-    memcpy(&tlv->value[4], ipaddr, sizeof(ipaddr));
+    memcpy(&tlv->value[4], lldp_port->source_ipaddr, 4);
 
     return tlv;
 }

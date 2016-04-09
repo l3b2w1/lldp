@@ -85,6 +85,11 @@
 #define IANA_RESERVED_HIGH   65535
 /* End IANA Family Number Assignments */
 
+
+#define LLDP_BEGIN_RESERVED_TLV 9
+#define LLDP_END_RESERVED_TLV 126
+
+
 #define XVALIDTLV     	0
 #define XEINVALIDTLV 	-1
 
@@ -125,11 +130,6 @@ struct lldp_tlv *validate_lldpmed_location_identification_tlv(struct lldp_tlv *t
 struct lldp_tlv *create_organizationally_specific_tlv(struct lldp_port *lldp_port, uint8_t *oui);
 uint8_t validate_organizationally_specific_tlv(struct lldp_tlv *tlv);
 
-
-
-#define LLDP_BEGIN_RESERVED_TLV 9
-#define LLDP_END_RESERVED_TLV 126
-
 char *decode_organizationally_specific_tlv(struct lldp_tlv *tlv);
 
 char *decode_network_address(uint8_t *network_address);
@@ -143,8 +143,8 @@ uint8_t tlvcpy(struct lldp_tlv *dst, struct lldp_tlv *src);
 
 struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port);
 struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port);
-struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port, int8_t role);
-struct lldp_tlv *create_ip_tlv(struct lldp_port *lldp_port, uint32_t ipaddr);
+struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port);
+struct lldp_tlv *create_slave_ipaddr_tlv(struct lldp_port *lldp_port);
 
 char *tlv_typetoname(uint8_t tlv_type);
 

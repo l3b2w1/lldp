@@ -34,11 +34,19 @@ u8 rxInitializeLLDP(struct lldp_port *lldp_port) {
     return 0;
 }
 
+extern int32_t dev_role;
+  
+void rxBadFrameInfo(uint8_t frameErrors) {
+	lldp_printf(MSG_WARNING, "[WARNING] This frame had %d errors!\n", frameErrors);
+}
+
+
+
+/* Defined by the IEEE 802.1AB standard */
 int rxProcessFrame(struct lldp_port *lldp_port)
 {
 	uint8_t badFrame = 0;
 
-	uint16_t last_tlv_type = 0;
     uint16_t num_tlvs      = 0;
     uint8_t tlv_type       = 0;
     uint16_t tlv_length    = 0;
@@ -53,36 +61,23 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 	uint16_t debug_offset    = 0;
 	uint8_t *tlv_value = NULL;
 
-	// The TLV to be cached for this frame's MSAP
-	struct lldp_tlv *cached_tlv = NULL;
-
     /* The IEEE 802.1AB MSAP is made up of the TLV information string from */
     /* TLV 1 and TLV 2. */
     uint8_t *msap_id           = NULL;
     uint32_t msap_length       = 0;
     uint8_t have_msap          = 0;
-    uint8_t have_dc_msap          = 0;
+    uint8_t have_dc_msap       = 0;
     struct lldp_tlv *msap_tlv1 = NULL;
     struct lldp_tlv *msap_tlv2 = NULL;
-    struct lldp_tlv *msap_dctlv = NULL;
-    struct lldp_tlv *msap_ttl_tlv = NULL;
-
-    /* The TLV list for this frame */
-    /* This list will be added to the MSAP cache */
-    struct lldp_tlv_list *tlv_list = NULL;
+    struct lldp_tlv msap_dctlv;
 
     /* The MSAP cache for this frame */
     struct lldp_msap *msap_cache = NULL;
 
-	// Variables for location based LLDP-MED TLV
-	char *elin   = NULL;
-	int calength = 0;
-	int catype   = 0;
-	
 	/* dunchong TLV vairiables */
 	int32_t role = 0;
 	int32_t subtype;
-	uint32_t ipaddr;
+	uint8_t ipaddr[4];
 
 #if 0
 	expect_hdr.dst[0] = 0x01;
@@ -96,9 +91,12 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
     ether_hdr = (struct eth_hdr *)&lldp_port->rx.frame[0];
 
-	printf(" ------------- ifname %s ------\n", lldp_port->if_name);
-
 	show_lldp_pdu(lldp_port->rx.frame, lldp_port->rx.recvsize);
+
+	if(ether_hdr->ethertype != expect_hdr.ethertype) {
+		lldp_printf(MSG_DEBUG, "[ERROR] This frame has an incorrect ethertype of: '%x'.\n", htons(ether_hdr->ethertype));
+		badFrame++;
+	}
 
 	do {
 		num_tlvs++;
@@ -110,14 +108,16 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
 		tlv_hdr = (uint16_t *)&lldp_port->rx.frame[sizeof(struct eth_hdr) + tlv_offset];
 
+		/* grab the first 9 bits */
 		tlv_length = htons(*tlv_hdr) & 0x01ff;
 
+		/* then shift to get the last 7 bits */
 		tlv_type = htons(*tlv_hdr) >> 9;
 
-		lldp_printf(MSG_DEBUG, "tlv hdr %04x, length %d, type %d\n", 
-					*tlv_hdr, tlv_length, tlv_type);
+		lldp_printf(MSG_DEBUG, "[%s %d]tlv hdr %04x, length %d, type %d\n", 
+				   __FUNCTION__, __LINE__, *tlv_hdr, tlv_length, tlv_type);
 		
-		if (tlv_type == 0)
+		if (tlv_type == END_OF_LLDPDU_TLV)
 			break;
 
 		tlv_value = (uint8_t *)&lldp_port->rx.frame[sizeof(struct eth_hdr) + sizeof(*tlv_hdr) + tlv_offset];
@@ -141,7 +141,6 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 				  warning Write a unit test to stress this*/
 			} else {
 				lldp_port->rx.timers.rxTTL = htons(*(uint16_t *)&tlv_value[0]);
-				msap_ttl_tlv = tlv;
 				lldp_printf(MSG_DEBUG, "rxTTL is: %d\n", lldp_port->rx.timers.rxTTL);
 			}
 		}
@@ -154,40 +153,34 @@ int rxProcessFrame(struct lldp_port *lldp_port)
         /* Begin, Here to Validate the TLV */
 
         /* End,   Here to Validate the TLV */
-#if 0
-		cached_tlv = initialize_tlv();
-		if(tlvcpy(cached_tlv, tlv) != 0)
-			lldp_printf(MSG_DEBUG, "Error copying TLV for MSAP cache!\n");
-
-		//lldp_printf(MSG_DEBUG, "Adding exploded TLV to MSAP TLV list.\n");
-		// Now we can start stuffing the msap data... ;)
-		add_tlv(cached_tlv, &tlv_list);
-
-#endif
+		
 		/* Store the MSAP elements */
 		if(tlv_type == CHASSIS_ID_TLV) {
-			lldp_printf(MSG_DEBUG, "Copying TLV1 for MSAP Processing...\n");
+			//lldp_printf(MSG_DEBUG, "Copying TLV1 for MSAP Processing...\n");
 			msap_tlv1 = initialize_tlv();
 			tlvcpy(msap_tlv1, tlv);
-		}
-
-		if(tlv_type == PORT_ID_TLV) {
-			lldp_printf(MSG_DEBUG, "Copying TLV2 for MSAP Processing...\n");
+		} else if(tlv_type == PORT_ID_TLV) {
+			//lldp_printf(MSG_DEBUG, "Copying TLV2 for MSAP Processing...\n");
 			msap_tlv2 = initialize_tlv();
 			tlvcpy(msap_tlv2, tlv);
 
-			msap_id = calloc(1, msap_tlv1->length - 1  + msap_tlv2->length - 1);
+			/* Minus 2, for the chassis id subtype and port id subtype... 
+			 * IEEE 802.1AB specifies that the MSAP shall be composed of 
+			 * The value of the subtypes. 
+			 */
+			msap_length = (msap_tlv1->length - 1) + (msap_tlv2->length - 1);
+
+			msap_id = calloc(1, msap_length);
 			if(msap_id == NULL)
 			{
 				lldp_printf(MSG_DEBUG, "[ERROR] Unable to malloc buffer in %s() at line: %d!\n", __FUNCTION__, __LINE__);
 			}
-			// Copy the first part of the MSAP 
+
+			/* Copy the first part of the MSAP  */
 			memcpy(msap_id, &msap_tlv1->value[1], msap_tlv1->length - 1);
 
-			// Copy the second part of the MSAP 
+			/* Copy the second part of the MSAP */ 
 			memcpy(&msap_id[msap_tlv1->length - 1], &msap_tlv2->value[1], msap_tlv2->length - 1);
-
-			msap_length = (msap_tlv1->length - 1) + (msap_tlv2->length - 1);
 
 #if 0
 			lldp_printf(MSG_DEBUG, "MSAP TLV1 Length: %d\n", msap_tlv1->length);
@@ -196,7 +189,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 			lldp_printf(MSG_DEBUG, "MSAP is %d bytes: ", msap_length);
 #endif
 			//debug_hex_printf(MSG_DEBUG, msap_id, msap_length);
-			lldp_hex_dump(msap_id, msap_length);
+			//prefix_hex_dump("msap_id ", msap_id, msap_length);
 
 			// Free the MSAP pieces
 			destroy_tlv(&msap_tlv1);
@@ -206,38 +199,38 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 			msap_tlv2 = NULL;
 
 			have_msap = 1;
-		}
-
-		if (tlv_type == ORG_SPECIFIC_TLV)
-		{
+		} else if (tlv_type == ORG_SPECIFIC_TLV) {
 			if (!IS_DC_OUI(tlv))
 				continue;
-#if 1
-			have_dc_msap = 1;
-			msap_dctlv = initialize_tlv();
-			tlvcpy(msap_dctlv, tlv);
 
-			subtype = msap_dctlv->value[3];
+			memset(&msap_dctlv, 0x0, sizeof(struct lldp_tlv));
+			tlvcpy(&msap_dctlv, tlv);
 
-			if (subtype == LLDP_DUNCHONG_DEVICE_IPADDR) {
-				memcpy(&ipaddr, &msap_dctlv->value[4], sizeof(ipaddr));
-				ipaddr = ntohl(ipaddr);
+			subtype = msap_dctlv.value[3];
+
+			switch (subtype) {
+				case LLDP_DUNCHONG_DEVICE_IPADDR:
+					memcpy(ipaddr, &msap_dctlv.value[4], sizeof(ipaddr));
+					break;
+				case LLDP_DUNCHONG_DEVICE_SET_IP:
+					memcpy(ipaddr, &msap_dctlv.value[4], sizeof(ipaddr));
+					break;
+				case LLDP_DUNCHONG_DEVICE_ROLE:
+					role = msap_dctlv.value[4];
+					break;
+				default:
+					break;
 			}
-#if 0
-			if (subtype == LLDP_DUNCHONG_DEVICE_ROLE)
-				role = msap_dctlv->value[4];
-#endif
 
-			destroy_tlv(&msap_dctlv);
-
-			msap_dctlv = NULL;
-#endif
-			
+			if (dev_role == LLDP_DUNCHONG_ROLE_MASTER && role == LLDP_DUNCHONG_ROLE_SLAVE)
+			  have_dc_msap = 1;
+			else if (dev_role == LLDP_DUNCHONG_ROLE_SLAVE && role == LLDP_DUNCHONG_ROLE_MASTER)
+			  have_dc_msap = 1;
+			else 
+			  have_dc_msap = 0;
 		}
 
 		tlv_offset += sizeof(*tlv_hdr) + tlv_length;
-
-		last_tlv_type = tlv_type;
 
 		//decode_tlv_subtype(tlv);
 
@@ -247,54 +240,36 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
 	} while (tlv_type != 0);
 
-#if 0
-	if (num_tlvs <= 3)
-	  /* Create a compound offset */
-	  debug_offset = tlv_length + sizeof(struct eth_hdr) + tlv_offset + sizeof(*tlv_hdr);
-
-	/* The TLV is telling us to index off the end of the frame... tisk tisk */
-	if(debug_offset > lldp_port->rx.recvsize) {
-		lldp_printf(MSG_DEBUG, "[ERROR] Received a bad TLV:  %d bytes too long!  Frame will be skipped.\n", debug_offset - lldp_port->rx.recvsize);
-		badFrame++;
-		break;
-	} else {
-		/* Temporary Debug to validate above... */
-		lldp_printf(MSG_DEBUG, "TLV would read to: %d, Frame ends at: %d\n", debug_offset, lldp_port->rx.recvsize);
-	}
-
-#endif
-
+	printf(">>>>>>>>> local_role %d, remote_role %d, ipaddr %d.%d.%d.%d, have_dc_msap %d\n", dev_role, role, ipaddr[0], 
+				ipaddr[1], ipaddr[2], ipaddr[3],
+				have_dc_msap);
 
 	/* We're done processing the frame and all TLVs... now we can cache it */
 	/* Only cache this TLV list if we have an MSAP for it */
-	if(have_msap && have_dc_msap)
-	{
+	if (have_msap && have_dc_msap) {
 		/* warning We need to verify whether this is actually the case. */
 		lldp_port->rxChanges = 1;
 
-		lldp_printf(MSG_DEBUG, "We have a(n) %d byte MSAP!\n", msap_length);
-		printf("DC TLV, role %d, ipaddr %x\n", role, ipaddr);
+		//lldp_printf(MSG_DEBUG, "We have a(n) %d byte MSAP!\n", msap_length);
+		//printf("[DC MSAP] role %d, ipaddr %x\n", role, ipaddr);
 
 		msap_cache = calloc(1, sizeof(struct lldp_msap));
 
 		msap_cache->id = msap_id;
 		msap_cache->length = msap_length;
-	//	msap_cache->tlv_list = tlv_list;
+		msap_cache->role = role;
 		msap_cache->next = NULL;
-		msap_cache->ipaddr = ipaddr;
-
-		msap_cache->ttl_tlv = msap_ttl_tlv;
-		msap_ttl_tlv = NULL;
+		msap_cache->rxInfoTTL = lldp_port->rx.timers.rxTTL;
+		memcpy(msap_cache->ipaddr, ipaddr, 4);
 
 		//lldp_printf(MSG_DEBUG, "Iterating MSAP Cache...\n");
 
 		//iterate_msap_cache(msap_cache);
 
-		lldp_printf(MSG_DEBUG, "Updating MSAP Cache...\n");
+		//lldp_printf(MSG_DEBUG, "Updating MSAP Cache...\n");
 
-		lldp_printf(MSG_DEBUG, "Setting rxInfoTTL to: %d\n", lldp_port->rx.timers.rxTTL);
+		//lldp_printf(MSG_DEBUG, "Setting rxInfoTTL to: %d\n", lldp_port->rx.timers.rxTTL);
 
-		msap_cache->rxInfoTTL = lldp_port->rx.timers.rxTTL;
 
 		update_msap_cache(lldp_port, msap_cache);
 
@@ -318,11 +293,8 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
 	/* Report frame errors */
 	if(badFrame) {
-		//rxBadFrameInfo(badFrame);
+		rxBadFrameInfo(badFrame);
 	}
 
-	//free(tlv);
-
 	return badFrame;
-
 }

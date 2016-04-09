@@ -3,17 +3,16 @@
 
 #include <sys/types.h>
 #include <stdint.h>
-#include "datatype.h"
 
 struct lldp_flat_tlv {
-	u16 size;
-	u8 *tlv;
+	uint16_t size;
+	uint8_t *tlv;
 };
 
 typedef struct lldp_tlv {
-	u8 type;
-	u16 length;
-	u8 *value;
+	uint8_t type;
+	uint16_t length;
+	uint8_t *value;
 }tlv_t;
 
 struct lldp_tlv_list {

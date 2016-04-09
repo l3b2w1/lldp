@@ -42,6 +42,8 @@ int initialize_lldp();
 void handle_segfault();
 void handle_hup();
 
+void cleanupLLDP(struct lldp_port *lldp_port);
+
 void walk_port_list() {
     struct lldp_port *lldp_port = lldp_ports;
 #if 1
@@ -64,6 +66,7 @@ void walk_port_list() {
 #endif
 }
 
+extern int32_t dev_role;
 
 void parse_args(int argc, char **argv)
 {
@@ -73,7 +76,7 @@ void parse_args(int argc, char **argv)
 	char c;
 
 	for (;;) {
-		c = getopt(argc, argv, "dhqf:stxi:");
+		c = getopt(argc, argv, "dhqf:stxi:r:");
 		if (c < 0)
 		  break;
 		switch (c) {
@@ -82,6 +85,9 @@ void parse_args(int argc, char **argv)
 				memcpy(iface_list, optarg, strlen(optarg));
 				iface_list[LLDP_IF_NAMESIZE - 1] = '\0';
 				lldp_printf(MSG_INFO, "Using interface %s\n", iface_list);
+				break;
+			case 'r':
+				dev_role = atoi(optarg);
 				break;
 			case 'x':
 				fork = 0;
@@ -268,14 +274,6 @@ void thread_tx_sm(void *ptr)
 }
 
 
-int32_t dev_role;
-
-/* device role: master or slave */
-void get_dev_role()
-{
-	dev_role = LLDP_DUNCHONG_ROLE_MASTER;
-}
-
 int main(int argc, char **argv)
 {
     uid_t uid;
@@ -302,7 +300,6 @@ int main(int argc, char **argv)
 
 	get_sys_desc();
 	get_sys_fqdn();
-	get_dev_role();
 
 	// get uid of user executing program. 
     uid = getuid();
@@ -328,102 +325,6 @@ int main(int argc, char **argv)
 	pthread_join(thread_tx_id, NULL);
 	pthread_join(thread_rx_id, NULL);
 
-#if 0
-	while (1) {
-		FD_ZERO(&readfds);	/* setup select() */
-
-		lldp_port = lldp_ports;
-		
-		while (lldp_port) {
-
-			/* This is not the interface you are looking for ... */
-			if (lldp_port->if_name == NULL) {
-				lldp_printf(MSG_ERROR, "[%s %d][ERROR] Interface index %d with name  is NULL \n", __FUNCTION__, __LINE__, lldp_port->if_index);
-				continue; /* Error, interface index %d with name %s is NULL */
-			}
-			
-			FD_SET(lldp_port->socket, &readfds);
-
-			if (lldp_port->socket > socket_width)
-				 socket_width = lldp_port->socket;
-			
-			lldp_port = lldp_port->next;
-		}
-		
-		time(&current_time);
-		
-		/* tell select how long to wait for ... */
-		timeout.tv_sec = 1;
-		timeout.tv_usec = 0;
-		
-		/* Timeout after 1 second if nothing is ready */
-		result = select(socket_width + 1, &readfds, NULL, NULL, &timeout);
-		
-		/* process the sockets */
-		lldp_port = lldp_ports;
-		
-		while (lldp_port != NULL) {
-			/* This is not the interface you are looking for ... */
-			if (lldp_port->if_name == NULL) {
-				lldp_printf(MSG_ERROR, "[%s %d][ERROR] Interface index %d with name  is NULL \n", 
-							__FUNCTION__, __LINE__, lldp_port->if_index);
-				continue; /* Error, interface index %d with name %s is NULL */
-			}
-			
-			lldp_printf(MSG_DEBUG, "[%s %d] ifname %s, result %u\n", 
-						__FUNCTION__, __LINE__, lldp_port->if_name, result);
-			if (result > 0) {
-				if (FD_ISSET(lldp_port->socket, &readfds)) {
-                    			lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s is readable!\n", 
-									__FUNCTION__, __LINE__, lldp_port->if_name);
-
-					lldp_read(lldp_port);
-					
-					if (lldp_port->rx.recvsize <= 0) {
-						if (errno != EAGAIN && errno != ENETDOWN)
-							printf("Error: (%d): %s (%s:%d)\n", 
-								errno, strerror(errno),
-								__FUNCTION__, __LINE__);
-					} else {
-						/* Got an LLDP Frame %d bytes  long on %s */
-						lldp_printf(MSG_INFO, "[%s %d][INFO] Got an LLDP frame %d bytes long on %s\n", 
-									__FUNCTION__, __LINE__, lldp_port->rx.recvsize, lldp_port->if_name);
-
-					 //lldp_debug_hex_dump(MSG_DEBUG, lldp_port->rx.frame, lldp_port->rx.recvsize);
-
-					/* Mark that we received a frame so the rx state machine can process it. */
-						lldp_port->rx.rcvFrame = 1;
-						
-						//rxStatemachineRun(lldp_port);
-					}
-				}
-			} /* end result > 0 */
-			
-
-			if ((result == 0) || (current_time > last_check)) {
-				lldp_port->tick = 1;
-				
-				txStatemachineRun(lldp_port); 
-                //rxStatemachineRun(lldp_port);
-
-				lldp_port->tick = 0;
-			}
-
-
-			if(result < 0) {
-				if(errno != EINTR) {
-					lldp_printf(MSG_ERROR, "[%s %d][ERROR] %s\n", __FUNCTION__, __LINE__, strerror(errno));
-				}
-			}
-
-			lldp_port = lldp_port->next;
-		}	/* end while(lldp_port != NULL) */
-
-		time(&last_check);
-	
-	}	/* end while(1) */
-	
-#endif
 out:	
 
 	return 0;	
@@ -431,16 +332,29 @@ out:
 
 void cleanupLLDP(struct lldp_port *lldp_port)
 {
-	lldp_port = lldp_ports;
 	struct lldp_msap *msap_cache = NULL;
+
+	lldp_port = lldp_ports;
 
 	lldp_printf(MSG_INFO, "[%s %d][INFO] Recv signal, cleanup lldp resourses\n", __FUNCTION__, __LINE__);
 
 	while (lldp_port != NULL) {
+
+		msap_cache = lldp_port->msap_cache;
+
+		while(msap_cache != NULL) {
+			if(msap_cache->id != NULL) 
+				free(msap_cache->id);
+
+			msap_cache = msap_cache->next;
+		}
+
+		free(lldp_port->msap_cache);
+		lldp_port->msap_cache = NULL;
+
 		if (lldp_port->if_name != NULL) {
 			tlvCleanupLLDP(lldp_port);
 			socketCleanupLLDP(lldp_port);
-			cleanupMsap(lldp_port);
 		} else {
 			lldp_printf(MSG_INFO, "[%s %d][ERROR] Interface with name is NULL\n", __FUNCTION__, __LINE__);
 			/* Error interface with name %s is NULL */
@@ -489,6 +403,9 @@ int initialize_lldp()
 
 		if (strncmp(if_name, "vmnet", 6) == 0)
 			continue;
+
+		if (strncmp(if_name, "wfm", 6) == 0)
+			continue;
 #endif
 		/* create new interface struct */
 		lldp_port = malloc(sizeof(struct lldp_port));
@@ -513,6 +430,7 @@ int initialize_lldp()
 					lldp_port->if_name, lldp_port->if_index);
 
 		lldp_port->portEnabled = 1;
+		lldp_port->role = get_dev_role();
 		
 		/* initialize the socket for this interface */
 		if (lldp_init_socket(lldp_port) != 0) {
