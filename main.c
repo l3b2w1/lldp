@@ -191,8 +191,6 @@ void thread_rx_sm(void *ptr)
 				continue; /* Error, interface index %d with name %s is NULL */
 			}
 
-			//lldp_printf(MSG_DEBUG, "[%s %d] ifname %s, result %u\n", 
-			//			__FUNCTION__, __LINE__, lldp_port->if_name, result);
 			if (result > 0) {
 				if (FD_ISSET(lldp_port->socket, &readfds)) {
 					//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s is readable, recvsize %d\n", 
@@ -220,8 +218,8 @@ void thread_rx_sm(void *ptr)
 						/* Mark that we received a frame so the rx state machine can process it. */
 						lldp_port->rx.rcvFrame = 1;
 
-						//rxStatemachineRun(lldp_port);
-						rxProcessFrame(lldp_port);
+						rxStatemachineRun(lldp_port);
+						//rxProcessFrame(lldp_port);
 						neighbors_info = lldp_neighbor_info(lldp_ports);
 						//printf("neighbors: %s\n", neighbors_info);
 						//free(neighbors_info);
@@ -229,16 +227,6 @@ void thread_rx_sm(void *ptr)
 					}
 				}
 			} /* end result > 0 */
-
-
-			if ((result == 0) || (current_time > last_check)) {
-				lldp_port->tick = 1;
-
-				//txStatemachineRun(lldp_port); 
-				//rxStatemachineRun(lldp_port);
-
-				lldp_port->tick = 0;
-			}
 
 
 			if(result < 0) {
@@ -285,7 +273,6 @@ int main(int argc, char **argv)
 
 	int op = 0;
     int socket_width = 0;
-    time_t current_time = 0;
     time_t last_check = 0;
     int result = 0;
 	struct lldp_port *lldp_port = NULL;
@@ -429,6 +416,8 @@ int initialize_lldp()
 					__FUNCTION__, __LINE__, 
 					lldp_port->if_name, lldp_port->if_index);
 
+
+		// We want the first state to be LLDP_WAIT_PORT_OPERATIONAL, so we'll blank out everything here.
 		lldp_port->portEnabled = 1;
 		lldp_port->role = get_dev_role();
 		
@@ -454,19 +443,19 @@ int initialize_lldp()
 		lldp_port->tx.state = TX_LLDP_INITIALIZE;
 		txInitializeLLDP(lldp_port);
 
-#if 0
-		lldp_printf(MSG_INFO, "[%s %d]Initializing RX SM for index %d with name %s\n", 
+		lldp_printf(MSG_DEBUG, "[%s %d]Initializing RX SM for index %d with name %s\n", 
 					__FUNCTION__, __LINE__, 
 					lldp_port->if_index, lldp_port->if_name);
 		lldp_port->rx.state = LLDP_WAIT_PORT_OPERATIONAL;
 		rxInitializeLLDP(lldp_port);
-#endif
-		lldp_port->portEnabled = 0;
-		lldp_port->adminStatus = enabledRxTx;
+		lldp_port->portEnabled  = 0;
+
+		lldp_port->adminStatus  = enabledRxTx;
 		
 		lldp_printf(MSG_INFO, "[%s %d]Initializing TLV subsystem for index %d with name %s\n", 
 					__FUNCTION__, __LINE__, 
 					lldp_port->if_index, lldp_port->if_name);
+
 		/* Initialize the TLV subsystem for this interface */
 		tlvInitializeLLDP(lldp_port);
 		

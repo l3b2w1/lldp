@@ -383,8 +383,8 @@ char *txStateFromID(uint8_t state) {
 
 void txStatemachineRun(struct lldp_port *lldp_port)
 {
-	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s -> %s\n", 
-					__FUNCTION__, __LINE__, lldp_port->if_name, txStateFromID(lldp_port->tx.state));
+	//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] %s -> %s\n", 
+	//				__FUNCTION__, __LINE__, lldp_port->if_name, txStateFromID(lldp_port->tx.state));
 	txGlobalStatemachineRun(lldp_port);
 
 	switch (lldp_port->tx.state) {

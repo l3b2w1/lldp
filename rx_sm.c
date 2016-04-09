@@ -29,7 +29,7 @@ u8 rxInitializeLLDP(struct lldp_port *lldp_port) {
 
     lldp_port->rx.rxInfoAge = 0;
 
-    //mibDeleteObjects(lldp_port);
+    mibDeleteObjects(lldp_port);
 
     return 0;
 }
@@ -117,8 +117,8 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 		/* then shift to get the last 7 bits */
 		tlv_type = htons(*tlv_hdr) >> 9;
 
-		lldp_printf(MSG_DEBUG, "[%s %d]tlv hdr %04x, length %d, type %d\n", 
-				   __FUNCTION__, __LINE__, *tlv_hdr, tlv_length, tlv_type);
+		//lldp_printf(MSG_DEBUG, "[%s %d]tlv hdr %04x, length %d, type %d\n", 
+		//		   __FUNCTION__, __LINE__, *tlv_hdr, tlv_length, tlv_type);
 		
 		if (tlv_type == END_OF_LLDPDU_TLV)
 			break;
@@ -253,7 +253,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 	/* Only cache this TLV list if we have an MSAP for it */
 	if (have_msap && have_dc_msap) {
 		/* warning We need to verify whether this is actually the case. */
-		lldp_port->rxChanges = 1;
+		lldp_port->rxChanges = TRUE;
 
 		//lldp_printf(MSG_DEBUG, "We have a(n) %d byte MSAP!\n", msap_length);
 		//printf("[DC MSAP] role %d, ipaddr %x\n", role, ipaddr);
@@ -333,8 +333,18 @@ uint8_t mibDeleteObjects(struct lldp_port *lldp_port)
 			curr = curr->next;
 		}
 	}
-
 }
+
+/* Just a stub */
+uint8_t mibUpdateObjects(struct lldp_port *lldp_port) {
+	struct lldp_msap *curr = lldp_port->msap_cache;
+
+	while (curr != NULL) {
+	}
+
+    return 0;
+}
+
 
 void rx_decrement_timer(uint16_t *timer) 
 {
@@ -399,5 +409,180 @@ char *rxStateFromID(uint8_t state)
     lldp_printf(MSG_ERROR, "[ERROR] Unknown RX State: '%d'\n", state);
     return "Unknown";
 }
+void rx_do_lldp_wait_port_operational(struct lldp_port *lldp_port) {
+    /* As per IEEE 802.1AB 10.5.5.3 state diagram */
+}
 
+void rx_do_delete_aged_info(struct lldp_port *lldp_port)
+{
+	lldp_port->rx.somethingChangedRemote = FALSE;
+	mibDeleteObjects(lldp_port);
+	lldp_port->rx.rxInfoAge = FALSE;
+	lldp_port->rx.somethingChangedRemote = TRUE;
+}	
+
+void rx_do_lldp_initialize(struct lldp_port *lldp_port)
+{
+	rxInitializeLLDP(lldp_port);
+	lldp_port->rx.rcvFrame = FALSE;
+}
+
+void rx_do_wait_for_frame(struct lldp_port *lldp_port)
+{
+	lldp_port->rx.badFrame = FALSE;
+	lldp_port->rx.rxInfoAge = FALSE;
+	lldp_port->rx.somethingChangedRemote = FALSE;
+}
+
+void rx_do_rx_frame(struct lldp_port *lldp_port)
+{
+	lldp_port->rxChanges = FALSE;
+	lldp_port->rx.rcvFrame = FALSE;
+	rxProcessFrame(lldp_port);
+
+	memset(&lldp_port->rx.frame[0], 0x0, lldp_port->rx.recvsize);
+}
+
+void rx_do_delete_info(struct lldp_port *lldp_port)
+{
+	mibDeleteObjects(lldp_port);
+	lldp_port->rx.somethingChangedRemote = TRUE;
+}
+
+
+void rx_do_update_info(struct lldp_port *lldp_port)
+{
+	mibUpdateObjects(lldp_port);
+	lldp_port->rx.somethingChangedRemote = TRUE;
+}
+
+void rxChangeToState(struct lldp_port *lldp_port, uint8_t state)
+{
+    lldp_printf(MSG_DEBUG, "[%s %d][%s] %s -> %s\n", 
+				__FUNCTION__, __LINE__, lldp_port->if_name,
+				rxStateFromID(lldp_port->rx.state), rxStateFromID(state));
+
+    switch(state) {
+        case LLDP_WAIT_PORT_OPERATIONAL:
+			break;    /* do nothing */
+        case RX_LLDP_INITIALIZE:
+			if (lldp_port->rx.state != LLDP_WAIT_PORT_OPERATIONAL)
+				lldp_printf(MSG_ERROR, "[ERROR] Illegal Transition: [%s] %s -> %s\n", lldp_port->if_name, rxStateFromID(lldp_port->rx.state), rxStateFromID(state));
+			break;
+		case DELETE_AGED_INFO:
+			if (lldp_port->rx.state != LLDP_WAIT_PORT_OPERATIONAL)
+				lldp_printf(MSG_DEBUG, "[ERROR] Illegal Transition: [%s] %s -> %s\n", lldp_port->if_name, rxStateFromID(lldp_port->rx.state), rxStateFromID(state));      
+				break;
+		case RX_WAIT_FOR_FRAME:
+				if(!(lldp_port->rx.state == RX_LLDP_INITIALIZE ||
+								lldp_port->rx.state == DELETE_INFO ||
+								lldp_port->rx.state == UPDATE_INFO ||
+								lldp_port->rx.state == RX_FRAME))
+					lldp_printf(MSG_DEBUG, "[ERROR] Illegal Transition: [%s] %s -> %s\n", lldp_port->if_name, rxStateFromID(lldp_port->rx.state), rxStateFromID(state));      
+				break;
+		case RX_FRAME:
+				if(lldp_port->rx.state != RX_WAIT_FOR_FRAME)
+					lldp_printf(MSG_DEBUG, "[ERROR] Illegal Transition: [%s] %s -> %s\n", lldp_port->if_name, rxStateFromID(lldp_port->rx.state), rxStateFromID(state));      
+				break;
+        case DELETE_INFO:
+				if(!(lldp_port->rx.state == RX_WAIT_FOR_FRAME ||
+								lldp_port->rx.state == RX_FRAME))
+					lldp_printf(MSG_DEBUG, "[ERROR] Illegal Transition: [%s] %s -> %s\n", lldp_port->if_name, rxStateFromID(lldp_port->rx.state), rxStateFromID(state));      
+				break;
+		case UPDATE_INFO:
+				if(lldp_port->rx.state != RX_FRAME)
+					lldp_printf(MSG_DEBUG, "[ERROR] Illegal Transition: [%s] %s -> %s\n", lldp_port->if_name, rxStateFromID(lldp_port->rx.state), rxStateFromID(state));      
+				break;
+        default:
+				lldp_printf(MSG_DEBUG, "[ERROR] Illegal Transition: [%s] %s -> %s\n", lldp_port->if_name, rxStateFromID(lldp_port->rx.state), rxStateFromID(state));      
+	}
+
+    /* Now update the interface state */
+    lldp_port->rx.state = state;
+}
+
+
+uint8_t rxGlobalStatemachineRun(struct lldp_port *lldp_port)
+{
+	lldp_printf(MSG_DEBUG, "[%s %d]rxInfoAge %d, portEnabled %d\n", 
+				__FUNCTION__, __LINE__, 
+				lldp_port->rx.rxInfoAge, lldp_port->portEnabled);
+	if ((lldp_port->rx.rxInfoAge == FALSE) && (lldp_port->portEnabled == FALSE))
+		rxChangeToState(lldp_port, LLDP_WAIT_PORT_OPERATIONAL);
+
+	switch (lldp_port->rx.state) {
+		case LLDP_WAIT_PORT_OPERATIONAL:
+			if(lldp_port->rx.rxInfoAge == TRUE)
+				rxChangeToState(lldp_port, DELETE_AGED_INFO);
+			if(lldp_port->portEnabled == TRUE) 
+				rxChangeToState(lldp_port, RX_LLDP_INITIALIZE);
+			break;
+		case DELETE_AGED_INFO:
+			rxChangeToState(lldp_port, LLDP_WAIT_PORT_OPERATIONAL);
+			break;
+		case RX_LLDP_INITIALIZE:
+			if((lldp_port->adminStatus == enabledRxTx) || (lldp_port->adminStatus == enabledRxOnly))
+				rxChangeToState(lldp_port, RX_WAIT_FOR_FRAME);
+			break;
+		case RX_WAIT_FOR_FRAME:
+			if(lldp_port->rx.rxInfoAge == TRUE)
+				rxChangeToState(lldp_port, DELETE_INFO);
+			if(lldp_port->rx.rcvFrame == TRUE)
+				rxChangeToState(lldp_port, RX_FRAME);
+			break;
+		case DELETE_INFO:
+			rxChangeToState(lldp_port, RX_WAIT_FOR_FRAME);
+			break;
+		case RX_FRAME:
+			if(lldp_port->rx.timers.rxTTL == 0)
+				rxChangeToState(lldp_port, DELETE_INFO);
+			if((lldp_port->rx.timers.rxTTL != 0) && (lldp_port->rxChanges == TRUE))
+				rxChangeToState(lldp_port, UPDATE_INFO);
+			break;
+		case UPDATE_INFO:
+			rxChangeToState(lldp_port, RX_WAIT_FOR_FRAME);
+			break;
+		default:
+			lldp_printf(MSG_DEBUG, "[ERROR] The RX Global State Machine is broken!\n");
+	}
+
+	return 0;
+}
+
+
+
+void rxStatemachineRun(struct lldp_port *lldp_port)
+{
+	lldp_printf(MSG_DEBUG, "Running RX state machine for %s\n", lldp_port->if_name);
+
+    rxGlobalStatemachineRun(lldp_port);
+
+	switch (lldp_port->rx.state) {
+		case LLDP_WAIT_PORT_OPERATIONAL:
+			rx_do_lldp_wait_port_operational(lldp_port);
+	 		break;
+		case DELETE_AGED_INFO:
+			rx_do_delete_aged_info(lldp_port);
+	 		break;
+		case RX_LLDP_INITIALIZE:
+			rx_do_lldp_initialize(lldp_port);
+	 		break;
+		case RX_WAIT_FOR_FRAME:
+			rx_do_wait_for_frame(lldp_port);
+	 		break;
+		case RX_FRAME:
+			rx_do_rx_frame(lldp_port);
+	 		break;
+		case DELETE_INFO:
+			rx_do_delete_info(lldp_port);
+	 		break;
+		case UPDATE_INFO:
+			rx_do_update_info(lldp_port);
+	 		break;
+		default:
+			lldp_printf(MSG_DEBUG, "[ERROR] The RX State Machine is broken!\n");      
+	}
+
+	rx_do_update_timers(lldp_port);
+}
 

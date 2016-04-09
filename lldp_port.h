@@ -87,7 +87,7 @@ struct lldp_rx_port {
 	uint8_t *frame;
 	ssize_t recvsize;
 	uint8_t state;
-	uint8_t badframe;
+	uint8_t badFrame;
 	uint8_t rcvFrame;
 	uint8_t rxInfoAge;
 	uint8_t somethingChangedRemote;

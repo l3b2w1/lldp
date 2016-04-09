@@ -7,7 +7,7 @@ CCFLAGS= -g -Wall
 LDFLAGS= -lpthread
 
 all:main.o $(objs)
-	gcc -o a.out -g main.o $(objs) $(CCFLAGS) $(LDFLAGS)
+	gcc -o a.out main.o $(objs) $(CCFLAGS) $(LDFLAGS)
 
 clean:
 	rm *.o a.out
