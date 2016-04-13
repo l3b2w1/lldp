@@ -1,4 +1,6 @@
 #include <unistd.h>
+#include <linux/if_packet.h>
+#include <linux/if_ether.h>
 #include <strings.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
@@ -35,6 +37,7 @@ char *program;
 char iface_list[IF_NAMESIZE];
 int  iface_filter = 0;   /* boolean */
 
+struct lldp_port *wifi_ports = NULL;
 struct lldp_port *lldp_ports = NULL;
 
 static void usage();
@@ -44,8 +47,9 @@ void handle_hup();
 
 void cleanupLLDP(struct lldp_port *lldp_port);
 
-void walk_port_list() {
-    struct lldp_port *lldp_port = lldp_ports;
+void walk_port_list(struct lldp_port *headlist) {
+//    struct lldp_port *lldp_port = lldp_ports;
+    struct lldp_port *lldp_port = headlist;
 #if 1
     while(lldp_port != NULL) {
         lldp_printf(MSG_DEBUG, "Interface structure @ %X\n", lldp_port);
@@ -147,30 +151,37 @@ void thread_rx_sm(void *ptr)
 
 	struct eth_hdr expect_hdr, *ether_hdr;
 
-	fd_set readfds;
+	fd_set readfds, tmpfds;
 
 	expect_hdr.ethertype = htons(0x88cc);
-	while (1) {
-		FD_ZERO(&readfds);	/* setup select() */
+	FD_ZERO(&readfds);	/* setup select() */
 
-		lldp_port = lldp_ports;
+	lldp_port = lldp_ports;
 
-		while (lldp_port) {
+	while (lldp_port != NULL) {
 
-			/* This is not the interface you are looking for ... */
-			if (lldp_port->if_name == NULL) {
-				lldp_printf(MSG_ERROR, "[%s %d][ERROR] Interface index %d with name  is NULL \n", __FUNCTION__, __LINE__, lldp_port->if_index);
-				continue; /* Error, interface index %d with name %s is NULL */
-			}
-
-			FD_SET(lldp_port->socket, &readfds);
-
-			if (lldp_port->socket > socket_width)
-			  socket_width = lldp_port->socket;
-
-			lldp_port = lldp_port->next;
+		/* This is not the interface you are looking for ... */
+		if (lldp_port->if_name == NULL) {
+			lldp_printf(MSG_ERROR, "[%s %d][ERROR] Interface index %d with name  is NULL \n", __FUNCTION__, __LINE__, lldp_port->if_index);
+			continue; /* Error, interface index %d with name %s is NULL */
 		}
 
+		FD_SET(lldp_port->socket, &readfds);
+
+		if (lldp_port->socket > socket_width)
+		  socket_width = lldp_port->socket;
+
+		lldp_port->portEnabled = TRUE;
+
+		lldp_port = lldp_port->next;
+	}	
+
+	tmpfds = readfds;
+
+	lldp_printf(MSG_DEBUG, "[%s %d] Enter rx state machine loop ...\n",
+				__FUNCTION__, __LINE__);
+	while (1) {
+		readfds = tmpfds;
 		time(&current_time);
 
 		/* tell select how long to wait for ... */
@@ -184,6 +195,7 @@ void thread_rx_sm(void *ptr)
 		lldp_port = lldp_ports;
 
 		while (lldp_port != NULL) {
+
 			/* This is not the interface you are looking for ... */
 			if (lldp_port->if_name == NULL) {
 				lldp_printf(MSG_ERROR, "[%s %d][ERROR] Interface index %d with name  is NULL \n", 
@@ -210,14 +222,13 @@ void thread_rx_sm(void *ptr)
 									  __FUNCTION__, __LINE__);
 					} else {
 						/* Got an LLDP Frame %d bytes  long on %s */
-						//lldp_printf(MSG_INFO, "[%s %d][INFO] Got an LLDP frame %d bytes long on %s\n", 
-						//			__FUNCTION__, __LINE__, lldp_port->rx.recvsize, lldp_port->if_name);
+						lldp_printf(MSG_INFO, "[%s %d][INFO] Got an LLDP frame %d bytes long on %s\n", 
+									__FUNCTION__, __LINE__, lldp_port->rx.recvsize, lldp_port->if_name);
 
 						//lldp_debug_hex_dump(MSG_DEBUG, lldp_port->rx.frame, lldp_port->rx.recvsize);
 
 						/* Mark that we received a frame so the rx state machine can process it. */
 						lldp_port->rx.rcvFrame = 1;
-
 						rxStatemachineRun(lldp_port);
 						//rxProcessFrame(lldp_port);
 						neighbors_info = lldp_neighbor_info(lldp_ports);
@@ -228,6 +239,9 @@ void thread_rx_sm(void *ptr)
 				}
 			} /* end result > 0 */
 
+            if((result == 0) || (current_time > last_check))
+				rxStatemachineRun(lldp_port);
+				
 
 			if(result < 0) {
 				if(errno != EINTR) {
@@ -261,6 +275,17 @@ void thread_tx_sm(void *ptr)
 	}
 }
 
+void thread_gratuitous_arp(void *ptr)
+{
+	int i;
+	struct lldp_port  *lldp_port;
+	lldp_port = lldp_ports;
+	uint32_t ip = 0x0a000101;
+	for (i = 0; i < 512; ++i) {
+		lldp_send_gratuitous_arp(lldp_port, ip);
+		ip++;
+	}
+}
 
 int main(int argc, char **argv)
 {
@@ -278,6 +303,7 @@ int main(int argc, char **argv)
 	struct lldp_port *lldp_port = NULL;
 	pthread_t thread_tx_id, thread_rx_id;
 
+	pthread_t arp_id;
 	fd_set readfds;
     fd_set unixfds;
 	
@@ -287,6 +313,7 @@ int main(int argc, char **argv)
 
 	get_sys_desc();
 	get_sys_fqdn();
+	get_wifi_interface();
 
 	// get uid of user executing program. 
     uid = getuid();
@@ -305,14 +332,18 @@ int main(int argc, char **argv)
 			lldp_printf(MSG_WARNING, "[%s %d] Unable to daemonize\n", __FUNCTION__, __LINE__);
 	}
 	
-	walk_port_list();
+	walk_port_list(wifi_ports);
+	walk_port_list(lldp_ports);
 
 	pthread_create(&thread_tx_id, NULL, (void*)thread_tx_sm, NULL);
 	pthread_create(&thread_rx_id, NULL, (void*)thread_rx_sm, NULL);
 	pthread_join(thread_tx_id, NULL);
 	pthread_join(thread_rx_id, NULL);
 
-out:	
+#if 0
+	pthread_create(&arp_id, NULL, (void*)thread_gratuitous_arp, NULL);
+	pthread_join(arp_id, NULL);
+#endif
 
 	return 0;	
 }
@@ -373,7 +404,7 @@ int initialize_lldp()
 		if (if_indextoname(if_index, if_name) == NULL)
 			continue;
 		
-		/* keep only the interface specified by -i option */
+			/* keep only the interface specified by -i option */
 		if (iface_filter) {
 			if (strncmp(if_name, (const char *)iface_list, LLDP_IF_NAMESIZE) != 0) {
 				lldp_printf(MSG_INFO, "[%s %d]Skipping interface %s (not %s)\n",
@@ -398,6 +429,9 @@ int initialize_lldp()
 		lldp_port = malloc(sizeof(struct lldp_port));
 		memset(lldp_port, 0x0, sizeof(struct lldp_port));
 		
+		
+		if (strncmp(if_name, "br0", 6) == 0)
+			lldp_port->wanport = TRUE;
 		/* add it to the global list */
 		lldp_port->next = lldp_ports;
 		lldp_printf(MSG_DEBUG, "[%s %d] add this interface %s to the global port list \n", __FUNCTION__, __LINE__, if_name);

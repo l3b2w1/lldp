@@ -26,8 +26,11 @@
 #include "tlv_common.h"
 #include "tlv.h"
 #include "common_func.h"
+#include "msap.h"
 
 #include "lldp_linux_framer.h"
+
+extern struct lldp_port *wifi_ports;
 
 void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 {
@@ -36,6 +39,7 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	struct lldp_flat_tlv *tlv = NULL;
 	struct lldp_tlv_list *tmp = NULL;
 	uint32_t frame_offset = 0;
+	struct lldp_port *wifi_port;
 
 	uint32_t ipaddr = 0x0a010002;
 
@@ -55,6 +59,7 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	tx_hdr.dst[4] = 0x00;
 	tx_hdr.dst[5] = 0x0e;
 #endif
+
 	tx_hdr.src[0] = lldp_port->source_mac[0];
 	tx_hdr.src[1] = lldp_port->source_mac[1];
 	tx_hdr.src[2] = lldp_port->source_mac[2];
@@ -102,6 +107,14 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 	add_tlv(create_dunchong_tlv(lldp_port), &tlv_list);
 	add_tlv(create_dunchong_ipaddr_tlv(lldp_port), &tlv_list);
 	add_tlv(create_role_tlv(lldp_port), &tlv_list);
+
+	/* wifi module info */
+	wifi_port = wifi_ports;
+	while (wifi_port != NULL) {
+		add_tlv(create_wifi_working_mode_tlv(lldp_port, wifi_port), &tlv_list);
+		wifi_port = wifi_port->next;
+	}
+
 	//add_tlv(create_slave_ipaddr_tlv(lldp_port), &tlv_list);
 
 	/* This TLV "MUST" be last */
@@ -128,7 +141,6 @@ void mibConstrInfoLLDPDU(struct lldp_port *lldp_port)
 		lldp_port->tx.sendsize = 64;
 	else
 		lldp_port->tx.sendsize = frame_offset;
-	//lldp_printf(MSG_DEBUG, "[%s %d] store info into lldp_port tx.frame buffer\n", __FUNCTION__, __LINE__);
 }
 
 
@@ -249,7 +261,7 @@ uint8_t txFrame(struct lldp_port *lldp_port)
 	//show_lldp_pdu(lldp_port->tx.frame, lldp_port->tx.sendsize);
 
 	if (lldp_port->tx.frame != NULL)
-	  memset(&lldp_port->tx.frame[0], 0x0, lldp_port->tx.sendsize);
+		memset(&lldp_port->tx.frame[0], 0x0, lldp_port->tx.sendsize);
 
 	lldp_printf(MSG_DEBUG, "[%s %d] TX frame through interface %s, size %d\n",
 				__FUNCTION__, __LINE__, lldp_port->if_name, lldp_port->tx.sendsize);

@@ -21,6 +21,7 @@ void socketCleanupLLDP(struct lldp_port *lldp_port);
 
 void refreshInterfaceData(struct lldp_port *lldp_port);
 int lldp_init_socket(struct lldp_port *lldp_port);
+int get_wifi_interface();
 
 
 	

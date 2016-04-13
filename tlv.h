@@ -145,6 +145,7 @@ struct lldp_tlv *create_dunchong_tlv(struct lldp_port *lldp_port);
 struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port);
 struct lldp_tlv *create_role_tlv(struct lldp_port *lldp_port);
 struct lldp_tlv *create_slave_ipaddr_tlv(struct lldp_port *lldp_port);
+struct lldp_tlv *create_wifi_working_mode_tlv(struct lldp_port *lldp_port, struct lldp_port *wifi_port);
 
 char *tlv_typetoname(uint8_t tlv_type);
 

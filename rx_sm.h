@@ -40,6 +40,7 @@ void rx_do_update_timers(struct lldp_port *lldp_port);
 
 /* End Receive sm "do" functions */
 
+int32_t alloc_ip_for_slave(struct lldp_msap *msap_cache);
 void rx_display_timers(struct lldp_port *lldp_port);
 
 #endif /* LLDP_RX_SM_H */

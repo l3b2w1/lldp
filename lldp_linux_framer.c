@@ -19,6 +19,7 @@
 #include "lldp_port.h"
 #include "lldp_debug.h"
 #include "common_func.h"
+#include "lldp_dunchong.h"
 
 #define XENOSOCK 0
 
@@ -32,6 +33,13 @@ ssize_t lldp_read(struct lldp_port *lldp_port) {
     return (lldp_port->rx.recvsize);
 }
 
+static int _get_wifi_working_mode(struct lldp_port *lldp_port)
+{
+	/* call some API to get the wifi interface working mode
+	 * 2G module or 5G ?
+	 */
+	lldp_port->wifimode = LLDP_DUNCHONG_WIFI_2G;
+}
 /* get the MAC address of an interface */
 static int _getmac(struct lldp_port *lldp_port)
 {
@@ -82,10 +90,78 @@ static int _getip(struct lldp_port *lldp_port)
 	return retval;
 }
 
+extern struct lldp_port *wifi_ports;
+
 void lldp_refresh_if_data(struct lldp_port *lldp_port)
 {
 	_getmac(lldp_port);
 	_getip(lldp_port);
+}
+
+/* get wifi interface module */
+int get_wifi_interface()
+{
+	int if_index = 0;
+	char if_name[32];
+	struct lldp_port *lldp_port, *tmpport;
+	int retval = 0;
+	struct ifreq *ifr = calloc(1, sizeof(struct ifreq));
+	struct sockaddr_ll *sll = calloc(1, sizeof(struct sockaddr_ll));
+
+	for (if_index = MIN_INTERFACES; if_index < MAX_INTERFACES; if_index++) {
+		if (if_indextoname(if_index, if_name) == NULL)
+			continue;
+
+		/* if is not wifi interface, skip */
+		if (strncmp(if_name, "wifi", 4))
+			continue;
+
+		/* create new interface struct */
+		lldp_port = malloc(sizeof(struct lldp_port));
+		memset(lldp_port, 0x0, sizeof(struct lldp_port));
+
+		/* add it to the global list */
+		lldp_port->next = wifi_ports;
+		//lldp_printf(MSG_DEBUG, "[%s %d] add this interface %s to the global port list \n", __FUNCTION__, __LINE__, if_name);
+		
+		lldp_port->if_index = if_index;
+		lldp_port->if_name = malloc(32);
+		if (lldp_port->if_name == NULL) {
+			free(lldp_port);
+			lldp_port = NULL;
+			continue;
+		}
+	
+		memcpy(lldp_port->if_name, if_name, 32);
+
+		lldp_port->socket = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_DUNCHONG));
+		if (lldp_port->socket < 0) {
+			lldp_printf(MSG_ERROR, "[%s %d]Couldn't initialize raw socket for interface %s!\n", __FUNCTION__, __LINE__, lldp_port->if_name);
+			return -1;
+		}
+		
+		/* Set up the interface for binding */
+		sll->sll_family = PF_PACKET;
+		sll->sll_ifindex = lldp_port->if_index;
+		sll->sll_protocol = htons(ETH_P_DUNCHONG);
+
+		retval = bind(lldp_port->socket, (struct sockaddr*)sll, sizeof(struct sockaddr_ll));
+		if (retval < 0) { 
+			lldp_printf(MSG_ERROR, "[%s %d] [ERROR] binding raw socket to interface %s failed\n", __FUNCTION__, __LINE__, lldp_port->if_name);
+			return -1;
+		}
+
+		strncpy(ifr->ifr_name, &lldp_port->if_name[0], strlen(lldp_port->if_name));
+		if (strlen(ifr->ifr_name) == 0) {
+			lldp_printf(MSG_ERROR, "[%s %d] [ERROR]Invalid interface name\n", __FUNCTION__, __LINE__);
+			return -1;
+		}
+
+		_getmac(lldp_port);
+		_get_wifi_working_mode(lldp_port);
+
+		wifi_ports = lldp_port;
+	}
 }
 
 int lldp_init_socket(struct lldp_port *lldp_port)

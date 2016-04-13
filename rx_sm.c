@@ -1,6 +1,5 @@
 #include <arpa/inet.h>
 #include <strings.h>
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,7 +40,7 @@ void rxBadFrameInfo(uint8_t frameErrors)
 	lldp_printf(MSG_WARNING, "[WARNING] This frame had %d errors!\n", frameErrors);
 }
 
-int32_t alloc_ip_for_slave(uint8_t *ipaddr)
+int32_t alloc_ip_for_slave(struct lldp_msap *msap_cache)
 {
 
 }
@@ -94,7 +93,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
     ether_hdr = (struct eth_hdr *)&lldp_port->rx.frame[0];
 
-	show_lldp_pdu(lldp_port->rx.frame, lldp_port->rx.recvsize);
+	//show_lldp_pdu(lldp_port->rx.frame, lldp_port->rx.recvsize);
 
 	if(ether_hdr->ethertype != expect_hdr.ethertype) {
 		lldp_printf(MSG_DEBUG, "[ERROR] This frame has an incorrect ethertype of: '%x'.\n", htons(ether_hdr->ethertype));
@@ -253,7 +252,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 	/* Only cache this TLV list if we have an MSAP for it */
 	if (have_msap && have_dc_msap) {
 		/* warning We need to verify whether this is actually the case. */
-		lldp_port->rxChanges = TRUE;
+		//lldp_port->rxChanges = TRUE;
 
 		//lldp_printf(MSG_DEBUG, "We have a(n) %d byte MSAP!\n", msap_length);
 		//printf("[DC MSAP] role %d, ipaddr %x\n", role, ipaddr);
@@ -277,6 +276,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 		lldp_printf(MSG_DEBUG, "Setting rxInfoTTL to: %d\n", lldp_port->rx.timers.rxTTL);
 
 #endif
+			 
 		update_msap_cache(lldp_port, msap_cache);
 
 		if(msap_tlv1 != NULL) {
@@ -337,12 +337,15 @@ uint8_t mibDeleteObjects(struct lldp_port *lldp_port)
 
 /* Just a stub */
 uint8_t mibUpdateObjects(struct lldp_port *lldp_port) {
+#if 0
 	struct lldp_msap *curr = lldp_port->msap_cache;
 
 	while (curr != NULL) {
+		curr = curr->next;
 	}
 
     return 0;
+#endif
 }
 
 
@@ -458,7 +461,7 @@ void rx_do_update_info(struct lldp_port *lldp_port)
 
 void rxChangeToState(struct lldp_port *lldp_port, uint8_t state)
 {
-    lldp_printf(MSG_DEBUG, "[%s %d][%s] %s -> %s\n", 
+    lldp_printf(MSG_INFO, "[%s %d][%s] %s -> %s\n", 
 				__FUNCTION__, __LINE__, lldp_port->if_name,
 				rxStateFromID(lldp_port->rx.state), rxStateFromID(state));
 
@@ -501,12 +504,12 @@ void rxChangeToState(struct lldp_port *lldp_port, uint8_t state)
     lldp_port->rx.state = state;
 }
 
-
 uint8_t rxGlobalStatemachineRun(struct lldp_port *lldp_port)
 {
-	lldp_printf(MSG_DEBUG, "[%s %d]rxInfoAge %d, portEnabled %d\n", 
+	lldp_printf(MSG_INFO, "[%s %d]rxInfoAge %d, portEnabled %d, rcvFrame %d\n", 
 				__FUNCTION__, __LINE__, 
-				lldp_port->rx.rxInfoAge, lldp_port->portEnabled);
+				lldp_port->rx.rxInfoAge, lldp_port->portEnabled,
+				lldp_port->rx.rcvFrame);
 	if ((lldp_port->rx.rxInfoAge == FALSE) && (lldp_port->portEnabled == FALSE))
 		rxChangeToState(lldp_port, LLDP_WAIT_PORT_OPERATIONAL);
 
@@ -514,7 +517,7 @@ uint8_t rxGlobalStatemachineRun(struct lldp_port *lldp_port)
 		case LLDP_WAIT_PORT_OPERATIONAL:
 			if(lldp_port->rx.rxInfoAge == TRUE)
 				rxChangeToState(lldp_port, DELETE_AGED_INFO);
-			if(lldp_port->portEnabled == TRUE) 
+			else if(lldp_port->portEnabled == TRUE) 
 				rxChangeToState(lldp_port, RX_LLDP_INITIALIZE);
 			break;
 		case DELETE_AGED_INFO:
@@ -527,7 +530,7 @@ uint8_t rxGlobalStatemachineRun(struct lldp_port *lldp_port)
 		case RX_WAIT_FOR_FRAME:
 			if(lldp_port->rx.rxInfoAge == TRUE)
 				rxChangeToState(lldp_port, DELETE_INFO);
-			if(lldp_port->rx.rcvFrame == TRUE)
+			else if(lldp_port->rx.rcvFrame == TRUE)
 				rxChangeToState(lldp_port, RX_FRAME);
 			break;
 		case DELETE_INFO:
@@ -536,8 +539,10 @@ uint8_t rxGlobalStatemachineRun(struct lldp_port *lldp_port)
 		case RX_FRAME:
 			if(lldp_port->rx.timers.rxTTL == 0)
 				rxChangeToState(lldp_port, DELETE_INFO);
-			if((lldp_port->rx.timers.rxTTL != 0) && (lldp_port->rxChanges == TRUE))
+			else if((lldp_port->rx.timers.rxTTL != 0) && (lldp_port->rxChanges == TRUE))
 				rxChangeToState(lldp_port, UPDATE_INFO);
+			else
+				rxChangeToState(lldp_port, RX_WAIT_FOR_FRAME);
 			break;
 		case UPDATE_INFO:
 			rxChangeToState(lldp_port, RX_WAIT_FOR_FRAME);
@@ -553,8 +558,6 @@ uint8_t rxGlobalStatemachineRun(struct lldp_port *lldp_port)
 
 void rxStatemachineRun(struct lldp_port *lldp_port)
 {
-	lldp_printf(MSG_DEBUG, "Running RX state machine for %s\n", lldp_port->if_name);
-
     rxGlobalStatemachineRun(lldp_port);
 
 	switch (lldp_port->rx.state) {

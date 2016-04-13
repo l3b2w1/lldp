@@ -12,6 +12,7 @@
 #include "lldp_neighbor.h"
 #include "lldp_dunchong.h"
 
+extern struct lldp_port *wifi_ports;
 static uint8_t DCOUI[] = {0xA4, 0xFB, 0x8D};
 uint8_t (*validate_tlv[128])(struct lldp_tlv *tlv) = {
 	validate_end_of_lldp_pdu_tlv,		/* 0 End of LLDP PDU TLV */
@@ -306,7 +307,7 @@ struct lldp_tlv *create_chassis_id_tlv(struct lldp_port *lldp_port)
 	p = lldp_port->source_mac;
 	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] lldp_port->source_mac %02x:%02x:%02x:%02x:%02x:%02x\n",
 				__FUNCTION__, __LINE__,  p[0], p[1], p[2], p[3], p[4], p[5]);
-	
+
 	return tlv;	
 }
 
@@ -604,6 +605,28 @@ struct lldp_tlv *create_dunchong_ipaddr_tlv(struct lldp_port *lldp_port)
 
     return tlv;
 }
+
+/* device wifi interface working mode */
+/* string format: 0011223344555 */
+struct lldp_tlv *create_wifi_working_mode_tlv(struct lldp_port *lldp_port, struct lldp_port *wifi_port)
+{
+    struct lldp_tlv* tlv = initialize_tlv();
+	uint8_t subtype = LLDP_DUNCHONG_DEVICE_WIFI;
+
+    tlv->type = ORG_SPECIFIC_TLV;
+
+    tlv->length = 7 + 3 + 1; /* mac 6 + wifimode 1*/
+
+    tlv->value = calloc(1, tlv->length);
+
+	memcpy(tlv->value, DCOUI, 3);
+	memcpy(&tlv->value[3], &subtype, 1);
+	memcpy(&tlv->value[4], wifi_port->source_mac, 6);
+	tlv->value[10] = wifi_port->wifimode;
+
+    return tlv;
+}
+
 
 uint8_t validate_organizationally_specific_tlv(struct lldp_tlv *tlv)
 {

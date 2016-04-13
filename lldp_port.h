@@ -24,6 +24,14 @@ struct eth_hdr {
 	uint16_t ethertype;
 };
 
+struct arp_hdr {
+	uint16_t		ar_hrd;		/* format of hardware address	*/
+	uint16_t		ar_pro;		/* format of protocol address	*/
+	unsigned char	ar_hln;		/* length of hardware address	*/
+	unsigned char	ar_pln;		/* length of protocol address	*/
+	uint16_t		ar_op;		/* ARP opcode (command)		*/
+};
+
 enum portAdminStatus {
 	disabled,
 	enabledTxOnly,
@@ -116,6 +124,8 @@ struct lldp_port {
 	 */
 	int32_t wifimode; /* wifi network interface working-mode 2G/5G ? */
 	int32_t role;	/* master ap or slave ap */
+	int32_t wanport; /*1 wan port, 0 not wan port
+					   wan port through which packet send out */
 
 	/* used for txFrame */
 	uint8_t slaveip[4];
@@ -148,6 +158,7 @@ struct lldp_msap {
 	//uint32_t ipaddr; /* if not allocated by master-ap, NULL */
 	uint32_t role;	/* master or slave */
 
+	/* if not allocated ip, then value is zero */
 	uint8_t ipaddr[4];
 	// XXX Revisit this
 	// A pointer to the TTL TLV

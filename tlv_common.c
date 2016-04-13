@@ -80,7 +80,7 @@ void destroy_tlv_list(struct lldp_tlv_list **tlv_list) {
 		return;
     }
 
-    lldp_printf(MSG_DEBUG, "[%s %d][DEBUG]Entering Destroy loop\n", __FUNCTION__, __LINE__);
+    //lldp_printf(MSG_DEBUG, "[%s %d][DEBUG]Entering Destroy loop\n", __FUNCTION__, __LINE__);
 
     while(current != NULL) {   
 

@@ -117,7 +117,7 @@ char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 		while (msap_cache != NULL) {
 			neighbor_count++;
 			pdata = msap_cache->id;
-			prefix_hex_dump("get msap id", msap_cache->id, msap_cache->length);
+			prefix_hex_dump("neighbors info msap id", msap_cache->id, msap_cache->length);
 			size = sprintf(p, "%02x:%02x:%02x:%02x:%02x:%02x;", 
 						pdata[0],pdata[1],pdata[2], pdata[3], pdata[4], pdata[5]);
 			p += size;
