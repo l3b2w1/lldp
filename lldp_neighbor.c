@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <fcntl.h>
 #include "lldp_port.h"
 #include "lldp_debug.h"
 #include "lldp_neighbor.h"
@@ -17,14 +18,19 @@
 
 int32_t dev_role;
 /* This wifi working-mode is 2G or 5G ? */
-int32_t get_wifi_mode()
+int32_t get_wifi_mode(struct lldp_port* wifi_port)
 {
-	
+	int8_t cmd[128] = {0};
+    int32_t wifimode;
+    sprintf(cmd, "iwprive %s get_mode", wifi_port->if_name);
+    
+    
 }
-
 int32_t get_dev_role()
 {
 	printf("[%s %d]device role %d\n", __FUNCTION__, __LINE__, dev_role);
+    if (dev_role == LLDP_DUNCHONG_ROLE_MASTER)
+        system("ifconfig br1 169.254.30.30 netmask 255.255.0.0");
 	return dev_role;
 	return LLDP_DUNCHONG_ROLE_MASTER;
 }
@@ -91,11 +97,11 @@ int get_sys_fqdn()
 	return 0;
 }
 
-#define LLDP_NEIGHBOR_INFO_FILE_PATH	"/tmp/lldp_neighbors_info.log"
+#define LLDP_NEIGHBOR_INFO_FILE_PATH	"/tmp/lldp_neighbors_info.txt"
 /* store neighbor information into file */
 uint8_t *lldp_store_neighbor_info(uint8_t *buf)
 {
-
+    
 }
 
 char *lldp_neighbor_info(struct lldp_port *lldp_ports)
@@ -106,6 +112,8 @@ char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 	uint8_t neighbors[1024] = {0};
 	uint8_t *p, *pdata;
 	int32_t size;
+    int32_t fd;
+    int32_t find = 0;
 
 	p = neighbors;
 	
@@ -133,125 +141,36 @@ char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 			lldp_printf(MSG_DEBUG, "[%s %d]msap rxInfoTTL %d\n", 
 						__FUNCTION__, __LINE__, msap_cache->rxInfoTTL);
 			msap_cache = msap_cache->next;
+            find++;
 		}
 
-		*(p-1) = 0;
+		//*(p-1) = 0;
 
 		lldp_port = lldp_port->next;
 	}
 	printf("%s\n", neighbors);
-
+#if 1
 	/* here to store neighbors info into files  */
+    if ((fd = open(LLDP_NEIGHBOR_INFO_FILE_PATH, O_CREAT | O_TRUNC | O_WRONLY, 0666)) < 0) {
+        lldp_printf(MSG_ERROR, "[%s %d]Open file %s failed\n", 
+						__FUNCTION__, __LINE__, LLDP_NEIGHBOR_INFO_FILE_PATH);
+        return NULL;
+    }
 
+    if (write(fd, neighbors, strlen(neighbors)) < 0)
+        lldp_printf(MSG_ERROR, "[%s %d]write file %s failed\n", 
+						__FUNCTION__, __LINE__, LLDP_NEIGHBOR_INFO_FILE_PATH);
+
+    close(fd);   
+    
+    if (dev_role == LLDP_DUNCHONG_ROLE_SLAVE && find) {
+        lldp_printf(MSG_INFO, "[%s %d] we find the Master AP, now exit!\n", 
+						__FUNCTION__, __LINE__);
+        exit(0);
+    }
+    else if (dev_role == LLDP_DUNCHONG_ROLE_MASTER && find >= 2) {
+        exit(0);
+    }
+#endif
 	return NULL;
 }
-#if 0
-char *lldp_neighbor_information(struct lldp_port *lldp_ports) {
-	struct lldp_port *lldp_port      = lldp_ports;
-	struct lldp_msap *msap_cache     = NULL;
-	struct lldp_tlv_list *tlv_list   = NULL;
-	int neighbor_count               = 0;
-	char *result = malloc(2048);
-	char *buffer = malloc(2048);
-	char *info_buffer = malloc(2048);
-	char *tmp_buffer = malloc(2048);
-	char *tlv_name = NULL;
-	char *tlv_subtype = NULL;
-
-	memset(result, 0x0, 2048);
-	memset(buffer, 0x0, 2048);
-	memset(info_buffer, 0x0, 2048);
-	memset(tmp_buffer, 0x0, 2048);
-
-	sprintf(result, "\nOpenLLDP Neighbor Info: \n\n");
-
-	while(lldp_port != NULL) {
-		neighbor_count = 0;
-		memset(buffer, 0x0, 2048);
-		memset(info_buffer, 0x0, 2048);
-		memset(tmp_buffer, 0x0, 2048);
-		sprintf(buffer, "Interface '%s' has ", lldp_port->if_name);
-
-		strncat(result, buffer, 2048);
-
-		msap_cache = lldp_port->msap_cache;
-
-		while(msap_cache != NULL) {
-
-			neighbor_count++;
-
-			tlv_list = msap_cache->tlv_list;
-
-			sprintf(tmp_buffer, "Neighbor %d:\n", neighbor_count);
-
-			strncat(info_buffer, tmp_buffer, 2048);
-
-			memset(tmp_buffer, 0x0, 2048);
-
-
-			while(tlv_list != NULL) {
-				memset(tmp_buffer, 0x0, 2048);
-
-				if(tlv_list->tlv != NULL) {
-
-					tlv_name = tlv_typetoname(tlv_list->tlv->type);
-
-					if(tlv_name != NULL) {
-						sprintf(tmp_buffer, "\t%s: ", tlv_name);
-
-						strncat(info_buffer, tmp_buffer, 2048);
-
-						//free(tlv_name);    
-						//tlv_name = NULL;
-
-						memset(tmp_buffer, 0x0, 2048);
-#if 0
-
-						//tlv_subtype = decode_tlv_subtype(tlv_list->tlv);
-
-						if(tlv_subtype != NULL) {	    
-							sprintf(tmp_buffer, "\t%s\n", tlv_subtype);
-
-							strncat(info_buffer, tmp_buffer, 2048);
-
-							memset(tmp_buffer, 0x0, 2048);
-
-							free(tlv_subtype);
-							tlv_subtype = NULL;
-						}
-#endif
-					} else {
-						sprintf(tmp_buffer, "\t\tUnknown TLV Type (%d)\n", tlv_list->tlv->type);
-						strncat(info_buffer, tmp_buffer, 2048);
-					}
-
-				} else {
-					lldp_printf(MSG_DEBUG, "Yikes... NULL TLV in MSAP cache!\n");
-				}
-
-				tlv_list = tlv_list->next;
-			}
-
-			strncat(info_buffer, "\n", 2048);
-
-			msap_cache = msap_cache->next;
-		}
-
-		memset(buffer, 0x0, 2048);
-
-		sprintf(buffer, "%d LLDP Neighbors: \n\n", neighbor_count);
-		strncat(result, buffer, 2048);
-		strncat(result, info_buffer, 2048);
-
-		lldp_port = lldp_port->next;
-	}
-
-	free(tmp_buffer);
-	free(info_buffer);
-	free(buffer);
-
-	return(result);
-}
-#endif
-
-

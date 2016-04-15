@@ -14,6 +14,8 @@
 
 uint8_t badFrame;
 
+extern void tx_do_tx_setip_frame(struct lldp_port *lldp_port);
+
 #define IS_DC_OUI(tlv) \
 	((tlv->value[0] == 0xA4) && (tlv->value[1] == 0xFB) \
 	 && (tlv->value[2] == 0x8D))
@@ -73,13 +75,32 @@ int rxProcessFrame(struct lldp_port *lldp_port)
     struct lldp_tlv *msap_tlv2 = NULL;
     struct lldp_tlv msap_dctlv;
 
+    int8_t cmd[256] = {0};
+
+	static uint8_t ips[] = {169, 254, 30, 30};
+	/* temp variables */
+	uint8_t *p;
+
+    /*
+	 * wifi module this device have (2G/5G)
+	 * This list will be added to the MSAP cache
+	  */
+	struct wifi_mod wifimods[2] = {0};
+	int32_t wifinum = 0;
+	//struct lldp_tlv_list *wifi_list = NULL;
+
     /* The MSAP cache for this frame */
     struct lldp_msap *msap_cache = NULL;
+
+    struct lldp_msap *msap = NULL;
 
 	/* dunchong TLV vairiables */
 	int32_t role = 0;
 	int32_t subtype;
 	uint8_t ipaddr[4];
+    int32_t setipflag = 0;
+
+	/* wifi module working mode */
 
 #if 0
 	expect_hdr.dst[0] = 0x01;
@@ -143,7 +164,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 				  warning Write a unit test to stress this*/
 			} else {
 				lldp_port->rx.timers.rxTTL = htons(*(uint16_t *)&tlv_value[0]);
-				lldp_printf(MSG_DEBUG, "rxTTL is: %d\n", lldp_port->rx.timers.rxTTL);
+				//lldp_printf(MSG_DEBUG, "rxTTL is: %d\n", lldp_port->rx.timers.rxTTL);
 			}
 		}
 
@@ -216,18 +237,39 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 					break;
 				case LLDP_DUNCHONG_DEVICE_SET_IP:
 					memcpy(ipaddr, &msap_dctlv.value[4], sizeof(ipaddr));
+                    if (dev_role == LLDP_DUNCHONG_ROLE_SLAVE) {
+                        setipflag = 1;
+       					p = ipaddr;
+    					lldp_printf(MSG_INFO, "[%s %d]allocated ip address %d.%d.%d.%d\n", 
+                                __FUNCTION__, __LINE__, p[0], p[1], p[2], p[3]);
+                        memset(cmd, 0x0, sizeof(cmd));
+                        sprintf(cmd, "ifconfig br1 %d.%d.%d.%d netmask 255.255.0.0", p[0], p[1], p[2], p[3]);
+                        printf("%s\n", cmd);
+                        system(cmd);
+                    }
 					break;
 				case LLDP_DUNCHONG_DEVICE_ROLE:
 					role = msap_dctlv.value[4];
+					break;
+				case LLDP_DUNCHONG_DEVICE_WIFI:
+					//printf("-------------begin helloworld  ");
+					p = &msap_dctlv.value[4];
+					//printf("%02x:%02x:%02x:%02x:%02x:%02x\n", p[0], p[1], p[2], p[3], p[4], p[5]);
+					memcpy(wifimods[wifinum].mac, &msap_dctlv.value[4], 6);
+					wifimods[wifinum].mode = msap_dctlv.value[10];
+					//printf("-------wifimode %d------end helloworld\n",
+					//			wifimods[wifinum].mode);
+					wifinum++;
+
 					break;
 				default:
 					break;
 			}
 
 			if (dev_role == LLDP_DUNCHONG_ROLE_MASTER && role == LLDP_DUNCHONG_ROLE_SLAVE)
-			  have_dc_msap = 1;
+			    have_dc_msap = 1;
 			else if (dev_role == LLDP_DUNCHONG_ROLE_SLAVE && role == LLDP_DUNCHONG_ROLE_MASTER)
-			  have_dc_msap = 1;
+			    have_dc_msap = 1;
 			else 
 			  have_dc_msap = 0;
 		}
@@ -248,11 +290,9 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 				ipaddr[1], ipaddr[2], ipaddr[3],
 				have_dc_msap);
 
-	/* We're done processing the frame and all TLVs... now we can cache it */
-	/* Only cache this TLV list if we have an MSAP for it */
 	if (have_msap && have_dc_msap) {
 		/* warning We need to verify whether this is actually the case. */
-		//lldp_port->rxChanges = TRUE;
+		lldp_port->rxChanges = TRUE;
 
 		//lldp_printf(MSG_DEBUG, "We have a(n) %d byte MSAP!\n", msap_length);
 		//printf("[DC MSAP] role %d, ipaddr %x\n", role, ipaddr);
@@ -264,6 +304,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 		msap_cache->role = role;
 		msap_cache->next = NULL;
 		msap_cache->rxInfoTTL = lldp_port->rx.timers.rxTTL;
+		memcpy(&msap_cache->wifimods, &wifimods, sizeof(wifimods));
 		memcpy(msap_cache->ipaddr, ipaddr, 4);
 
 #if 0
@@ -276,8 +317,25 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 		lldp_printf(MSG_DEBUG, "Setting rxInfoTTL to: %d\n", lldp_port->rx.timers.rxTTL);
 
 #endif
-			 
-		update_msap_cache(lldp_port, msap_cache);
+        msap = update_msap_cache(lldp_port, msap_cache);
+
+		/* alloc ip address for slave here */
+        if ((dev_role == LLDP_DUNCHONG_ROLE_MASTER) && (role == LLDP_DUNCHONG_ROLE_SLAVE)) {
+           // if (msap->allocated == 0) {
+                memcpy(lldp_port->slaveip, ips, 4);	
+                memcpy(lldp_port->slavemac, msap->id, 6);
+                msap->allocated = 1;
+    			tx_do_tx_setip_frame(lldp_port);
+    			ips[3] += 1;
+           // }
+        }
+
+        #if 1
+		p = msap->ipaddr;
+        printf("SLAVE IP %d.%d.%d.%d\n", p[0], p[1], p[2], p[3]);
+        printf("SLAVE IP %x\n", *((uint32_t *)msap->ipaddr));
+        #endif
+		//if ((*((uint32_t *)msap->ipaddr)) == 0) {
 
 		if(msap_tlv1 != NULL) {
 			lldp_printf(MSG_ERROR, "Error: msap_tlv1 is still allocated!\n");
@@ -347,7 +405,6 @@ uint8_t mibUpdateObjects(struct lldp_port *lldp_port) {
     return 0;
 #endif
 }
-
 
 void rx_decrement_timer(uint16_t *timer) 
 {
@@ -441,6 +498,7 @@ void rx_do_rx_frame(struct lldp_port *lldp_port)
 {
 	lldp_port->rxChanges = FALSE;
 	lldp_port->rx.rcvFrame = FALSE;
+	//show_lldp_pdu(lldp_port->rx.frame, lldp_port->rx.recvsize);
 	rxProcessFrame(lldp_port);
 
 	memset(&lldp_port->rx.frame[0], 0x0, lldp_port->rx.recvsize);
@@ -513,6 +571,7 @@ uint8_t rxGlobalStatemachineRun(struct lldp_port *lldp_port)
 	if ((lldp_port->rx.rxInfoAge == FALSE) && (lldp_port->portEnabled == FALSE))
 		rxChangeToState(lldp_port, LLDP_WAIT_PORT_OPERATIONAL);
 
+	show_lldp_pdu(lldp_port->rx.frame, lldp_port->rx.recvsize);
 	switch (lldp_port->rx.state) {
 		case LLDP_WAIT_PORT_OPERATIONAL:
 			if(lldp_port->rx.rxInfoAge == TRUE)
@@ -553,8 +612,6 @@ uint8_t rxGlobalStatemachineRun(struct lldp_port *lldp_port)
 
 	return 0;
 }
-
-
 
 void rxStatemachineRun(struct lldp_port *lldp_port)
 {

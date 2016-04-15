@@ -215,6 +215,9 @@ void thread_rx_sm(void *ptr)
 					if (ether_hdr->ethertype != expect_hdr.ethertype)
 						continue;
 
+					//printf("receive frame\n");
+					//show_lldp_pdu(lldp_port->rx.frame, lldp_port->rx.recvsize);
+
 					if (lldp_port->rx.recvsize <= 0) {
 						if (errno != EAGAIN && errno != ENETDOWN)
 						  printf("Error: (%d): %s (%s:%d)\n", 
@@ -230,7 +233,6 @@ void thread_rx_sm(void *ptr)
 						/* Mark that we received a frame so the rx state machine can process it. */
 						lldp_port->rx.rcvFrame = 1;
 						rxStatemachineRun(lldp_port);
-						//rxProcessFrame(lldp_port);
 						neighbors_info = lldp_neighbor_info(lldp_ports);
 						//printf("neighbors: %s\n", neighbors_info);
 						//free(neighbors_info);
@@ -424,14 +426,16 @@ int initialize_lldp()
 
 		if (strncmp(if_name, "wfm", 6) == 0)
 			continue;
+
 #endif
 		/* create new interface struct */
 		lldp_port = malloc(sizeof(struct lldp_port));
 		memset(lldp_port, 0x0, sizeof(struct lldp_port));
 		
 		
-		if (strncmp(if_name, "br0", 6) == 0)
+		if (strncmp(if_name, iface_list, LLDP_IF_NAMESIZE) == 0)
 			lldp_port->wanport = TRUE;
+
 		/* add it to the global list */
 		lldp_port->next = lldp_ports;
 		lldp_printf(MSG_DEBUG, "[%s %d] add this interface %s to the global port list \n", __FUNCTION__, __LINE__, if_name);

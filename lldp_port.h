@@ -150,15 +150,26 @@ struct lldp_port {
 	uint8_t operational_mau_type;
 };
 
+/* wifi module */
+struct wifi_mod {
+	struct wifi_mod *next;
+	uint8_t mac[6];
+	int32_t mode; /* working mode 2G or 5G */
+};
+
 struct lldp_msap {
 	struct lldp_msap *next;
 	uint8_t *id;
 	uint8_t length;
 	struct lldp_tlv_list *tlv_list;
+
+	/* here we store info about device wifi module */
+	struct wifi_mod wifimods[2];
+
 	//uint32_t ipaddr; /* if not allocated by master-ap, NULL */
 	uint32_t role;	/* master or slave */
 
-	/* if not allocated ip, then value is zero */
+    int32_t allocated; /* 1 allocated, 0 not */
 	uint8_t ipaddr[4];
 	// XXX Revisit this
 	// A pointer to the TTL TLV

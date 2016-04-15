@@ -152,7 +152,8 @@ void config_ip_for_slave(struct lldp_port *lldp_port)
 	struct lldp_tlv_list *tmp = NULL;
 	uint32_t frame_offset = 0;
 	uint8_t *p;
-	uint32_t ip;
+
+    p = lldp_port->slavemac;
 
 	tx_hdr.dst[0] = p[0];
 	tx_hdr.dst[1] = p[1];
@@ -243,7 +244,7 @@ uint8_t txInitializeLLDP(struct lldp_port *lldp_port)
 	/* recommended minimum by 802.1ab 10.5.3.3 */
 	lldp_port->tx.timers.reinitDelay = 2; 
 	lldp_port->tx.timers.msgTxHold = 4;
-	lldp_port->tx.timers.msgTxInterval = 3; /* seconds */
+	lldp_port->tx.timers.msgTxInterval = 5; /* seconds */
 	lldp_port->tx.timers.txDelay = 2;
 
 	/* unsure what to set these to ... */
@@ -258,7 +259,7 @@ uint8_t txFrame(struct lldp_port *lldp_port)
 {
 	lldp_write(lldp_port);
 
-	//show_lldp_pdu(lldp_port->tx.frame, lldp_port->tx.sendsize);
+	show_lldp_pdu(lldp_port->tx.frame, lldp_port->tx.sendsize);
 
 	if (lldp_port->tx.frame != NULL)
 		memset(&lldp_port->tx.frame[0], 0x0, lldp_port->tx.sendsize);

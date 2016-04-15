@@ -20,6 +20,7 @@ uint8_t txFrame();
 void txStatemachineRun(struct lldp_port *lldp_port);
 void txChangeToState(struct lldp_port *lldp_port, uint8_t state);
 void tx_do_tx_lldp_initialize(struct lldp_port *lldp_port);
+void tx_do_tx_setip_frame(struct lldp_port *lldp_port);
 /* End Defined by the 802.1AB specification */
 
 #endif

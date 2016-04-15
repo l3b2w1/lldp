@@ -191,6 +191,7 @@ void cleanupMsap(struct lldp_port *lldp_port)
 
 void iterate_msap_cache(struct lldp_msap *msap_cache) 
 {
+	uint8_t *p;
 	while(msap_cache != NULL) {
 		lldp_printf(MSG_DEBUG, "MSAP cache: %X\n", msap_cache);
 
@@ -203,6 +204,16 @@ void iterate_msap_cache(struct lldp_msap *msap_cache)
 		lldp_printf(MSG_DEBUG, "MSAP rxInfoTTL: %X\n", msap_cache->rxInfoTTL);
 
 		lldp_printf(MSG_DEBUG, "MSAP Length: %X\n", msap_cache->length);
+
+		p = msap_cache->wifimods[0].mac;
+		lldp_printf(MSG_DEBUG, "wifi module1[%dG]: %02x:%02x:%02x:%02x:%02x:%02x\n", 
+					msap_cache->wifimods[0].mode, 
+					p[0], p[1], p[2], p[3], p[4], p[5]);
+
+		p = msap_cache->wifimods[1].mac;
+		lldp_printf(MSG_DEBUG, "wifi module2[%dG]: %02x:%02x:%02x:%02x:%02x:%02x\n", 
+					msap_cache->wifimods[1].mode, 
+					p[0], p[1], p[2], p[3], p[4], p[5]);
 
 		lldp_printf(MSG_DEBUG, "MSAP Next: %X\n", msap_cache->next);
 
@@ -260,7 +271,7 @@ int gratuitous_arp_send(struct lldp_port *lldp_port)
 	return 0;
 }
 
-void update_msap_cache(struct lldp_port *lldp_port, struct lldp_msap* msap_cache) {
+struct lldp_msap* update_msap_cache(struct lldp_port *lldp_port, struct lldp_msap* msap_cache) {
 	struct lldp_msap *old_cache = lldp_port->msap_cache;
 	struct lldp_msap *new_cache = msap_cache;
 
@@ -282,7 +293,7 @@ void update_msap_cache(struct lldp_port *lldp_port, struct lldp_msap* msap_cache
 				free(new_cache->id);
 				free(new_cache);
 
-				return;
+				return old_cache;
 			}
 
 		}
@@ -297,5 +308,6 @@ void update_msap_cache(struct lldp_port *lldp_port, struct lldp_msap* msap_cache
 	new_cache->next = lldp_port->msap_cache;
 	lldp_port->msap_cache = new_cache;
 
+	return new_cache;
 	/*warning We are leaking memory... need to dispose of the msap_cache under certain circumstances */
 }

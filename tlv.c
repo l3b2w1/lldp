@@ -552,7 +552,6 @@ struct lldp_tlv *create_slave_ipaddr_tlv(struct lldp_port *lldp_port)
 {
     struct lldp_tlv* tlv = initialize_tlv();
 	uint8_t subtype = LLDP_DUNCHONG_DEVICE_SET_IP;
-	uint32_t ip;
 
     tlv->type = ORG_SPECIFIC_TLV;
 
