@@ -249,7 +249,7 @@ struct lldp_tlv *create_end_of_lldp_pdu_tlv()
 
     tlv->value = NULL;
 
-	lldp_printf(MSG_DEBUG, "[%s %d] add end of lldppdu tlv\n", __FUNCTION__, __LINE__);
+//	lldp_printf(MSG_DEBUG, "[%s %d] add end of lldppdu tlv\n", __FUNCTION__, __LINE__);
     return tlv;
 }
 
@@ -305,8 +305,8 @@ struct lldp_tlv *create_chassis_id_tlv(struct lldp_port *lldp_port)
 	memcpy(&tlv->value[1], lldp_port->source_mac, 6);
 
 	p = lldp_port->source_mac;
-	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] lldp_port->source_mac %02x:%02x:%02x:%02x:%02x:%02x\n",
-				__FUNCTION__, __LINE__,  p[0], p[1], p[2], p[3], p[4], p[5]);
+	//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] lldp_port->source_mac %02x:%02x:%02x:%02x:%02x:%02x\n",
+	//			__FUNCTION__, __LINE__,  p[0], p[1], p[2], p[3], p[4], p[5]);
 
 	return tlv;	
 }
@@ -335,8 +335,8 @@ struct lldp_tlv *create_port_id_tlv(struct lldp_port *lldp_port)
     // This reads "memory copy to the destination at the address of tlv->value[1] with the source lldp_port->if_name for strlen(lldp_port->if_name) bytes"
     memcpy(&tlv->value[1], lldp_port->if_name, strlen(lldp_port->if_name));
 
-	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add port id tlv, if_name %s\n", 
-				__FUNCTION__, __LINE__, lldp_port->if_name);
+	//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add port id tlv, if_name %s\n", 
+		//		__FUNCTION__, __LINE__, lldp_port->if_name);
     return tlv;
 }
 
@@ -356,8 +356,8 @@ struct lldp_tlv *create_ttl_tlv(struct lldp_port *lldp_port)
 	
 	tlv->value = calloc(1, tlv->length);
 	memcpy(tlv->value, &ttl, tlv->length);
-	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add ttl tlv, ttl %d\n",
-				__FUNCTION__, __LINE__, lldp_port->tx.txTTL);
+	//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add ttl tlv, ttl %d\n",
+		//		__FUNCTION__, __LINE__, lldp_port->tx.txTTL);
 	
 	return tlv;	
 }
@@ -385,7 +385,7 @@ struct lldp_tlv *create_port_description_tlv(struct lldp_port *lldp_port)
 	tlv->value = calloc(1, tlv->length);
 
 	memcpy(tlv->value, lldp_port->if_name, strlen(lldp_port->if_name));
-	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add port description tlv if_name %s\n", __FUNCTION__, __LINE__, lldp_port->if_name);
+	//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add port description tlv if_name %s\n", __FUNCTION__, __LINE__, lldp_port->if_name);
 
 	return tlv;
 }
@@ -405,8 +405,8 @@ struct lldp_tlv *create_system_name_tlv(struct lldp_port *lldp_port)
 	tlv->value = calloc(1, tlv->length);
 
 	memcpy(tlv->value, lldp_systemname, tlv->length);
-	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add sytem name tlv, sysname %s\n", 
-				__FUNCTION__, __LINE__, lldp_systemname);
+	//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add sytem name tlv, sysname %s\n", 
+	//			__FUNCTION__, __LINE__, lldp_systemname);
 
 	return tlv;
 }
@@ -429,8 +429,8 @@ struct lldp_tlv *create_system_description_tlv(struct lldp_port *lldp_port)
 
 	memcpy(tlv->value, lldp_systemdesc, tlv->length);
 
-	lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add sytem description tlv, systemdesc %s\n",
-				__FUNCTION__, __LINE__, lldp_systemdesc);
+	//lldp_printf(MSG_DEBUG, "[%s %d][DEBUG] add sytem description tlv, systemdesc %s\n",
+	//			__FUNCTION__, __LINE__, lldp_systemdesc);
     return tlv;
 
 }

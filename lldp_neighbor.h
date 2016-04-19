@@ -24,5 +24,6 @@ char *lldp_neighbor_information(struct lldp_port *lldp_ports);
 
 extern int32_t dev_role;
 
+#define IS_MASTER() (dev_role == LLDP_DUNCHONG_ROLE_MASTER)
 
 #endif /* _LLDP_NEIGHBOR_H_ */

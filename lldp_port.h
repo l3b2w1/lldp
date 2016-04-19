@@ -150,6 +150,8 @@ struct lldp_port {
 	uint8_t operational_mau_type;
 };
 
+
+#define DEVICE_WIFI_MODULES_NUM		2
 /* wifi module */
 struct wifi_mod {
 	struct wifi_mod *next;
@@ -164,7 +166,7 @@ struct lldp_msap {
 	struct lldp_tlv_list *tlv_list;
 
 	/* here we store info about device wifi module */
-	struct wifi_mod wifimods[2];
+	struct wifi_mod wifimods[DEVICE_WIFI_MODULES_NUM];
 
 	//uint32_t ipaddr; /* if not allocated by master-ap, NULL */
 	uint32_t role;	/* master or slave */

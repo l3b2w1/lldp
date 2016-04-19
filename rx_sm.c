@@ -85,7 +85,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 	 * wifi module this device have (2G/5G)
 	 * This list will be added to the MSAP cache
 	  */
-	struct wifi_mod wifimods[2] = {0};
+	struct wifi_mod wifimods[DEVICE_WIFI_MODULES_NUM] = {0};
 	int32_t wifinum = 0;
 	//struct lldp_tlv_list *wifi_list = NULL;
 
@@ -243,8 +243,8 @@ int rxProcessFrame(struct lldp_port *lldp_port)
     					lldp_printf(MSG_INFO, "[%s %d]allocated ip address %d.%d.%d.%d\n", 
                                 __FUNCTION__, __LINE__, p[0], p[1], p[2], p[3]);
                         memset(cmd, 0x0, sizeof(cmd));
-                        sprintf(cmd, "ifconfig br1 %d.%d.%d.%d netmask 255.255.0.0", p[0], p[1], p[2], p[3]);
-                        printf("%s\n", cmd);
+                        sprintf(cmd, "ifconfig br0:1 %d.%d.%d.%d netmask 255.255.0.0", p[0], p[1], p[2], p[3]);
+                        printf("[Should be br0 for slave] %s\n", cmd);
                         system(cmd);
                     }
 					break;
@@ -252,13 +252,18 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 					role = msap_dctlv.value[4];
 					break;
 				case LLDP_DUNCHONG_DEVICE_WIFI:
-					//printf("-------------begin helloworld  ");
+                    if (wifinum >= DEVICE_WIFI_MODULES_NUM) {
+                        lldp_printf(MSG_ERROR, "have no enough space to store more wifi "
+                                                "moudle info coming from the neighbor, just skip\n");
+                        break;
+                    }
+                        
+					printf("------------ begin helloworld------\n");
 					p = &msap_dctlv.value[4];
-					//printf("%02x:%02x:%02x:%02x:%02x:%02x\n", p[0], p[1], p[2], p[3], p[4], p[5]);
+					printf("wifi module: %02x:%02x:%02x:%02x:%02x:%02x\n", p[0], p[1], p[2], p[3], p[4], p[5]);
 					memcpy(wifimods[wifinum].mac, &msap_dctlv.value[4], 6);
 					wifimods[wifinum].mode = msap_dctlv.value[10];
-					//printf("-------wifimode %d------end helloworld\n",
-					//			wifimods[wifinum].mode);
+					printf("------------ wifimode %d -----------\n", wifimods[wifinum].mode);
 					wifinum++;
 
 					break;
@@ -284,11 +289,11 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
 	} while (tlv_type != 0);
 
-	lldp_printf(MSG_DEBUG, "[%s %d]local_role %d, remote_role %d, ipaddr %d.%d.%d.%d, have_dc_msap %d\n", 
+	lldp_printf(MSG_DEBUG, "[%s %d]local_role %s, remote_role %s, ipaddr %d.%d.%d.%d, have_dc_msap %s\n", 
 				__FUNCTION__, __LINE__,
-				dev_role, role, ipaddr[0], 
+				dev_role ? "slave":"master", role ? "slave":"master", ipaddr[0], 
 				ipaddr[1], ipaddr[2], ipaddr[3],
-				have_dc_msap);
+				have_dc_msap ? "yes" : "no");
 
 	if (have_msap && have_dc_msap) {
 		/* warning We need to verify whether this is actually the case. */
@@ -320,22 +325,38 @@ int rxProcessFrame(struct lldp_port *lldp_port)
         msap = update_msap_cache(lldp_port, msap_cache);
 
 		/* alloc ip address for slave here */
+        
         if ((dev_role == LLDP_DUNCHONG_ROLE_MASTER) && (role == LLDP_DUNCHONG_ROLE_SLAVE)) {
-           // if (msap->allocated == 0) {
+            if (msap->allocated == 0) {
+                memcpy(msap->ipaddr, ips, 4);
                 memcpy(lldp_port->slaveip, ips, 4);	
                 memcpy(lldp_port->slavemac, msap->id, 6);
                 msap->allocated = 1;
+
     			tx_do_tx_setip_frame(lldp_port);
+                lldp_printf(MSG_INFO, "[%s %d] send out setip lldpdu, "
+                                        "mac %02x:%02x:%02x:%02x:%02x:%02x,"
+                                        " %d.%d.%d.%d, msap->allocated %d\n ",
+                            __FUNCTION__, __LINE__, msap->id[0], msap->id[1], msap->id[2], 
+                            msap->id[3], msap->id[4], msap->id[5], 
+                            msap->ipaddr[0],msap->ipaddr[1],msap->ipaddr[2],msap->ipaddr[3], msap->allocated);
     			ips[3] += 1;
-           // }
+            } else {
+                lldp_printf(MSG_INFO, "[%s %d]msap->allocated %d "
+                                        "mac %02x:%02x:%02x:%02x:%02x:%02x,"
+                                        " %d.%d.%d.%d\n ", 
+                                        __FUNCTION__, __LINE__, 
+                                        msap->allocated, msap->id[0], msap->id[1], msap->id[2], 
+                                        msap->id[3], msap->id[4], msap->id[5], 
+                                        msap->ipaddr[0], msap->ipaddr[1], msap->ipaddr[2], msap->ipaddr[3]);
+            }
         }
 
-        #if 1
+        #if 0
 		p = msap->ipaddr;
-        printf("SLAVE IP %d.%d.%d.%d\n", p[0], p[1], p[2], p[3]);
-        printf("SLAVE IP %x\n", *((uint32_t *)msap->ipaddr));
+        //printf("SLAVE IP %d.%d.%d.%d\n", p[0], p[1], p[2], p[3]);
+        //printf("SLAVE IP %x\n", *((uint32_t *)msap->ipaddr));
         #endif
-		//if ((*((uint32_t *)msap->ipaddr)) == 0) {
 
 		if(msap_tlv1 != NULL) {
 			lldp_printf(MSG_ERROR, "Error: msap_tlv1 is still allocated!\n");

@@ -281,8 +281,10 @@ struct lldp_msap* update_msap_cache(struct lldp_port *lldp_port, struct lldp_msa
 			//lldp_printf(MSG_DEBUG, "MSAP Length: %X\n", old_cache->length);
 
 			if(memcmp(old_cache->id, new_cache->id, new_cache->length) == 0) {
-				lldp_printf(MSG_DEBUG, "MSAP Cache Hit on %s\n", lldp_port->if_name);
-				iterate_msap_cache(msap_cache);
+				lldp_printf(MSG_DEBUG, "[%s %d]MSAP Cache Hit on %s\n", 
+                            __FUNCTION__, __LINE__, lldp_port->if_name);
+
+                iterate_msap_cache(msap_cache);
 
 				if ((dev_role == LLDP_DUNCHONG_ROLE_MASTER) && (msap_cache->role == LLDP_DUNCHONG_ROLE_SLAVE) && (!msap_cache->ipaddr))
 					alloc_ip_for_slave(msap_cache);
@@ -295,15 +297,13 @@ struct lldp_msap* update_msap_cache(struct lldp_port *lldp_port, struct lldp_msa
 
 				return old_cache;
 			}
-
 		}
-
-		//lldp_printf(MSG_DEBUG, "Checking next MSAP entry...\n");
 
 		old_cache = old_cache->next;
 	}
 
-	lldp_printf(MSG_DEBUG, "MSAP Cache Miss on %s\n", lldp_port->if_name);
+	lldp_printf(MSG_DEBUG, "[%s %d]MSAP Cache new added on %s\n", 
+                __FUNCTION__, __LINE__, lldp_port->if_name);
 
 	new_cache->next = lldp_port->msap_cache;
 	lldp_port->msap_cache = new_cache;

@@ -33,13 +33,47 @@ ssize_t lldp_read(struct lldp_port *lldp_port) {
     return (lldp_port->rx.recvsize);
 }
 
-static int _get_wifi_working_mode(struct lldp_port *lldp_port)
+#define IS_2G(wifimode)  (wifimode & 0x01)
+#define IS_5G(wifimode)  (wifimode & 0x02)
+
+/* This wifi working-mode is 2G or 5G , error -1 */
+static int32_t _get_wifi_working_mode(struct lldp_port* wifi_port)
 {
-	/* call some API to get the wifi interface working mode
-	 * 2G module or 5G ?
-	 */
-	lldp_port->wifimode = LLDP_DUNCHONG_WIFI_2G;
+    #if 0
+    FILE *fp;
+    int8_t *p;
+	int8_t cmd[128] = {0};
+    int8_t buf[16] = {0};
+    int32_t wifimode;
+    
+    sprintf(cmd, "iwprive %s get_mode", wifi_port->if_name);
+
+    if ((fp = popen(cmd, "r")) == NULL)
+        return -1;
+    p = fgets(cmd, sizeof(buf), fp);
+    if (p == NULL)
+        return -1;
+    
+    printf("buf %s", buf);
+    
+    pclose(fp);
+
+    wifimode = atoi(buf);
+
+    if (IS_2G(wifimode))
+        wifimode = LLDP_DUNCHONG_WIFI_2G;
+
+    if (IS_5G(wifimode))
+        wifimode = LLDP_DUNCHONG_WIFI_5G;
+
+    wifi_port->wifimode = wifimode;
+    return wifimode; 
+    #endif
+
+    wifi_port->wifimode = LLDP_DUNCHONG_WIFI_2G;
+    return LLDP_DUNCHONG_WIFI_2G;
 }
+
 /* get the MAC address of an interface */
 static int _getmac(struct lldp_port *lldp_port)
 {
@@ -122,7 +156,7 @@ int get_wifi_interface()
 
 		/* add it to the global list */
 		lldp_port->next = wifi_ports;
-		//lldp_printf(MSG_DEBUG, "[%s %d] add this interface %s to the global port list \n", __FUNCTION__, __LINE__, if_name);
+		lldp_printf(MSG_DEBUG, "[%s %d] add this interface %s to the global port list \n", __FUNCTION__, __LINE__, if_name);
 		
 		lldp_port->if_index = if_index;
 		lldp_port->if_name = malloc(32);
@@ -159,6 +193,12 @@ int get_wifi_interface()
 
 		_getmac(lldp_port);
 		_get_wifi_working_mode(lldp_port);
+
+        lldp_printf(MSG_INFO, "[%s %d]wifi INC %02x:%02x:%02x:%02x:%02x:%02x, wifimode %dG\n",
+                       __FUNCTION__, __LINE__, 
+                       lldp_port->source_mac[0], lldp_port->source_mac[1], lldp_port->source_mac[2], 
+                       lldp_port->source_mac[3], lldp_port->source_mac[4], lldp_port->source_mac[5],
+                       lldp_port->wifimode);
 
 		wifi_ports = lldp_port;
 	}

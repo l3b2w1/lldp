@@ -259,13 +259,13 @@ uint8_t txFrame(struct lldp_port *lldp_port)
 {
 	lldp_write(lldp_port);
 
-	show_lldp_pdu(lldp_port->tx.frame, lldp_port->tx.sendsize);
+//	show_lldp_pdu(lldp_port->tx.frame, lldp_port->tx.sendsize);
 
 	if (lldp_port->tx.frame != NULL)
 		memset(&lldp_port->tx.frame[0], 0x0, lldp_port->tx.sendsize);
 
-	lldp_printf(MSG_DEBUG, "[%s %d] TX frame through interface %s, size %d\n",
-				__FUNCTION__, __LINE__, lldp_port->if_name, lldp_port->tx.sendsize);
+	//lldp_printf(MSG_DEBUG, "[%s %d] TX frame through interface %s, size %d\n",
+	//			__FUNCTION__, __LINE__, lldp_port->if_name, lldp_port->tx.sendsize);
 	return 0;
 }
 
