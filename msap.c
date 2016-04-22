@@ -196,10 +196,11 @@ void iterate_msap_cache(struct lldp_msap *msap_cache)
 		lldp_printf(MSG_DEBUG, "MSAP cache: %X\n", msap_cache);
 
 		lldp_printf(MSG_DEBUG, "MSAP ID: ");
-		//debug_hex_printf(MSG_DEBUG, msap_cache->id, msap_cache->length);
+        
 		lldp_hex_dump(msap_cache->id, msap_cache->length);
 
-		lldp_printf(MSG_DEBUG, "MSAP IpAddr: %X\n", msap_cache->ipaddr);
+		lldp_printf(MSG_DEBUG, "MSAP IpAddr: %d.%d.%d.%d\n", msap_cache->ipaddr[0],
+                    msap_cache->ipaddr[1], msap_cache->ipaddr[2], msap_cache->ipaddr[3]);
 
 		lldp_printf(MSG_DEBUG, "MSAP rxInfoTTL: %X\n", msap_cache->rxInfoTTL);
 
@@ -283,11 +284,8 @@ struct lldp_msap* update_msap_cache(struct lldp_port *lldp_port, struct lldp_msa
 			if(memcmp(old_cache->id, new_cache->id, new_cache->length) == 0) {
 				lldp_printf(MSG_DEBUG, "[%s %d]MSAP Cache Hit on %s\n", 
                             __FUNCTION__, __LINE__, lldp_port->if_name);
-
+                
                 iterate_msap_cache(msap_cache);
-
-				if ((dev_role == LLDP_DUNCHONG_ROLE_MASTER) && (msap_cache->role == LLDP_DUNCHONG_ROLE_SLAVE) && (!msap_cache->ipaddr))
-					alloc_ip_for_slave(msap_cache);
 
 				old_cache->rxInfoTTL = new_cache->rxInfoTTL;
 

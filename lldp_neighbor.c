@@ -28,7 +28,7 @@ int32_t get_wifi_mode(struct lldp_port* wifi_port)
 
 int32_t get_dev_role()
 {
-	printf("[%s %d]device role %d\n", 
+	printf("[%s %d]device role %s\n", 
             __FUNCTION__, __LINE__, dev_role ? "slave" : "master");
     if (IS_MASTER())
         system("ifconfig br1[should be br1 for master] 169.254.254.254 netmask 255.255.0.0");
@@ -120,7 +120,7 @@ char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 
 		msap_cache = lldp_port->msap_cache;
 
-        iterate_msap_cache(msap_cache);
+       // iterate_msap_cache(msap_cache);
         
 		while (msap_cache != NULL) {
 			neighbor_count++;
@@ -147,7 +147,7 @@ char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 			}
 
 			pdata = msap_cache->id;
-			prefix_hex_dump("neighbors info msap id", msap_cache->id, msap_cache->length);
+			//prefix_hex_dump("neighbors info msap id", msap_cache->id, msap_cache->length);
 		
 			lldp_printf(MSG_DEBUG, "[%s %d]msap rxInfoTTL %d, msap ip %d.%d.%d.%d\n", 
 						__FUNCTION__, __LINE__, msap_cache->rxInfoTTL, msap_cache->ipaddr[0],
@@ -160,7 +160,8 @@ char *lldp_neighbor_info(struct lldp_port *lldp_ports)
 
 		lldp_port = lldp_port->next;
 	}
-	printf("%s\n", neighbors);
+	lldp_printf(MSG_DEBUG, "<--------- neighbors ------->\n%s\n", neighbors);
+    
 #if 1
 	/* here to store neighbors info into files  */
 	if ((fd = open(LLDP_NEIGHBOR_INFO_FILE_PATH, O_CREAT | O_TRUNC | O_WRONLY, 0666)) < 0) {

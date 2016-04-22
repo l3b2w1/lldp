@@ -179,11 +179,9 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 		
 		/* Store the MSAP elements */
 		if(tlv_type == CHASSIS_ID_TLV) {
-			//lldp_printf(MSG_DEBUG, "Copying TLV1 for MSAP Processing...\n");
 			msap_tlv1 = initialize_tlv();
 			tlvcpy(msap_tlv1, tlv);
 		} else if(tlv_type == PORT_ID_TLV) {
-			//lldp_printf(MSG_DEBUG, "Copying TLV2 for MSAP Processing...\n");
 			msap_tlv2 = initialize_tlv();
 			tlvcpy(msap_tlv2, tlv);
 
@@ -341,8 +339,10 @@ int rxProcessFrame(struct lldp_port *lldp_port)
                             msap->id[3], msap->id[4], msap->id[5], 
                             msap->ipaddr[0],msap->ipaddr[1],msap->ipaddr[2],msap->ipaddr[3], msap->allocated);
     			ips[3] += 1;
+                if (ips[3] == 255 || ips[3] == 0)
+                    ips[3] += 1;
             } else {
-                lldp_printf(MSG_INFO, "[%s %d]msap->allocated %d "
+                lldp_printf(MSG_INFO, "[%s %d]already msap->allocated %d "
                                         "mac %02x:%02x:%02x:%02x:%02x:%02x,"
                                         " %d.%d.%d.%d\n ", 
                                         __FUNCTION__, __LINE__, 
@@ -351,12 +351,6 @@ int rxProcessFrame(struct lldp_port *lldp_port)
                                         msap->ipaddr[0], msap->ipaddr[1], msap->ipaddr[2], msap->ipaddr[3]);
             }
         }
-
-        #if 0
-		p = msap->ipaddr;
-        //printf("SLAVE IP %d.%d.%d.%d\n", p[0], p[1], p[2], p[3]);
-        //printf("SLAVE IP %x\n", *((uint32_t *)msap->ipaddr));
-        #endif
 
 		if(msap_tlv1 != NULL) {
 			lldp_printf(MSG_ERROR, "Error: msap_tlv1 is still allocated!\n");
