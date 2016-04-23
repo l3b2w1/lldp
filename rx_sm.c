@@ -365,8 +365,9 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 		}
 
 	}
-	else
+	else if(have_msap)
 	{
+		free(msap_id);
 		lldp_printf(MSG_ERROR, "[ERROR] No MSAP for TLVs in Frame!\n");
 	}
 
