@@ -275,8 +275,6 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 			    have_dc_msap = 1;
 			else 
 			  have_dc_msap = 0;
-			  
-			free(msap_dctlv.value);
 		}
 
 		tlv_offset += sizeof(*tlv_hdr) + tlv_length;
@@ -285,7 +283,7 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
 		destroy_tlv(&tlv);
 
-
+		free(msap_dctlv.value);
 
 	} while (tlv_type != 0);
 
