@@ -21,7 +21,7 @@ extern void tx_do_tx_setip_frame(struct lldp_port *lldp_port);
 	 && (tlv->value[2] == 0x8D))
 
 /* Defined by the IEEE 802.1AB standard */
-u8 rxInitializeLLDP(struct lldp_port *lldp_port) {
+uint8_t rxInitializeLLDP(struct lldp_port *lldp_port) {
     /* As per IEEE 802.1AB section 10.5.5.3 */
     lldp_port->rx.rcvFrame        = 0;
 

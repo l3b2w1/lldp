@@ -8,7 +8,7 @@
 
 struct lldp_flat_tlv *flatten_tlv(struct lldp_tlv *tlv)
 {
-	u16 type_and_length = 0;
+	uint16_t type_and_length = 0;
 	struct lldp_flat_tlv *flat_tlv = NULL;
 	
 	if (!tlv) {
@@ -153,7 +153,7 @@ void add_tlv(struct lldp_tlv *tlv, struct lldp_tlv_list **tlv_list)
 /* A helper function to explode a flattened TLV */
 struct lldp_tlv *explode_tlv(struct lldp_flat_tlv *flat_tlv)
 {
-	u16 type_and_length = 0;
+	uint16_t type_and_length = 0;
 	struct lldp_tlv *tlv = NULL;
 
 	tlv = calloc(1, sizeof(struct lldp_tlv));
@@ -165,11 +165,11 @@ struct lldp_tlv *explode_tlv(struct lldp_flat_tlv *flat_tlv)
 	}
 
 	/* suck the type and length out... */
-	type_and_length = *(u16*)&tlv[0];
+	type_and_length = *(uint16_t*)&tlv[0];
 
 	tlv->length		 = type_and_length & 511;
 	type_and_length	 = type_and_length >> 9;
-	tlv->type		 = (u8)type_and_length;
+	tlv->type		 = (uint8_t)type_and_length;
 
 	tlv->value = calloc(1, tlv->length);
 

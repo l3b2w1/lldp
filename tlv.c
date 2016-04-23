@@ -349,7 +349,7 @@ uint8_t validate_port_id_tlv(struct lldp_tlv *tlv)
 struct lldp_tlv *create_ttl_tlv(struct lldp_port *lldp_port)
 {
 	struct lldp_tlv *tlv = initialize_tlv();
-	u16 ttl = htons(lldp_port->tx.txTTL);
+	uint16_t ttl = htons(lldp_port->tx.txTTL);
 	
 	tlv->type = TIME_TO_LIVE_TLV;
 	tlv->length = 2;

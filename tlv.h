@@ -2,8 +2,6 @@
 #define _LLDP_TLV_H_
 
 #include "lldp_port.h"
-#include "datatype.h"
-
 /* TLV Types from section 9.4.1 of IEEE 802.1AB */
 #define END_OF_LLDPDU_TLV       0    /* MANDATORY */
 #define CHASSIS_ID_TLV          1    /* MANDATORY */
@@ -94,7 +92,7 @@
 #define XEINVALIDTLV 	-1
 
 //extern u8 (*validate_tlv[])(struct lldp_tlv*);
-u8 intializeTLVFunctionValidators();
+uint8_t intializeTLVFunctionValidators();
 
 struct lldp_tlv *create_chassis_id_tlv(struct lldp_port *lldp_port);
 uint8_t validate_chassis_id_tlv(struct lldp_tlv *tlv);
@@ -136,7 +134,7 @@ char *decode_network_address(uint8_t *network_address);
 char *decode_tlv_subtype(struct lldp_tlv *tlv);
 
 void tlvCleanupLLDP();
-u8 tlvInitializeLLDP(struct lldp_port *lldp_port);
+uint8_t tlvInitializeLLDP(struct lldp_port *lldp_port);
 
 struct lldp_tlv *initialize_tlv();
 uint8_t tlvcpy(struct lldp_tlv *dst, struct lldp_tlv *src);
