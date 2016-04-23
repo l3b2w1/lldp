@@ -202,6 +202,9 @@ int get_wifi_interface()
 
 		wifi_ports = lldp_port;
 	}
+	
+	free(ifr);
+	free(sll);
 }
 
 int lldp_init_socket(struct lldp_port *lldp_port)
