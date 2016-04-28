@@ -71,6 +71,7 @@ void show_lldp_pdu(uint8_t *buf, int32_t size)
 
 	if (col != 0) {
 		memcpy(lastline, p, col);
+		p = lastline;
 		lldp_printf(MSG_INFO, "%02x %02x %02x %02x %02x %02x %02x %02x    %02x %02x %02x %02x %02x %02x %02x %02x\n",
 					p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7],
 					p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);

@@ -187,6 +187,14 @@ void config_ip_for_slave(struct lldp_port *lldp_port)
 	/* This TLV *MUST* be third */
 	add_tlv(create_ttl_tlv(lldp_port), &tlv_list);
 
+	/* should better carry this fields, avoid that slave first receive this frame without our wifi information */
+	/* wifi module info */
+	wifi_port = wifi_ports;
+	while (wifi_port != NULL) {
+		add_tlv(create_wifi_working_mode_tlv(lldp_port, wifi_port), &tlv_list);
+		wifi_port = wifi_port->next;
+	}
+
 	/* alloc IP for slave */
 	add_tlv(create_slave_ipaddr_tlv(lldp_port), &tlv_list);
 
