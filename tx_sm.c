@@ -151,6 +151,7 @@ void config_ip_for_slave(struct lldp_port *lldp_port)
 	struct lldp_flat_tlv *tlv = NULL;
 	struct lldp_tlv_list *tmp = NULL;
 	uint32_t frame_offset = 0;
+	struct lldp_port *wifi_port;
 	uint8_t *p;
 
     p = lldp_port->slavemac;
