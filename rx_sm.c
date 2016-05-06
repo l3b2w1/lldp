@@ -221,8 +221,10 @@ int rxProcessFrame(struct lldp_port *lldp_port)
 
 			have_msap = 1;
 		} else if (tlv_type == ORG_SPECIFIC_TLV) {
-			if (!IS_DC_OUI(tlv))
+			if (!IS_DC_OUI(tlv)) {
+				destroy_tlv(&tlv);
 				continue;
+			}
 
 			memset(&msap_dctlv, 0x0, sizeof(struct lldp_tlv));
 			tlvcpy(&msap_dctlv, tlv);
