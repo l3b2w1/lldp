@@ -81,11 +81,9 @@ int parse_args(int argc, char **argv)
 
 	for (;;) {
 		c = getopt(argc, argv, "dhqf:stxi:r:");
-		if (c < 0) {
-			usage();
-			exitcode = -1;
+		if (c < 0)
 			break;
-		}
+
 		switch (c) {
 			case 'i':
 				iface_filter = 1;
@@ -307,6 +305,11 @@ int main(int argc, char **argv)
 	pthread_t arp_id;
 	fd_set readfds;
     fd_set unixfds;
+
+	if (argc < 2) {
+		usage();
+		exit(0);
+	}
 	
 	program = argv[0];
 
