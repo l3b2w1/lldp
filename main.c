@@ -72,7 +72,7 @@ void walk_port_list(struct lldp_port *headlist) {
 
 extern int32_t dev_role;
 
-void parse_args(int argc, char **argv)
+int parse_args(int argc, char **argv)
 {
 	int exitcode = 0;
 	int fork = 0;
@@ -81,8 +81,11 @@ void parse_args(int argc, char **argv)
 
 	for (;;) {
 		c = getopt(argc, argv, "dhqf:stxi:r:");
-		if (c < 0)
-		  break;
+		if (c < 0) {
+			usage();
+			exitcode = -1;
+			break;
+		}
 		switch (c) {
 			case 'i':
 				iface_filter = 1;
@@ -130,11 +133,7 @@ void parse_args(int argc, char **argv)
 	else
 	  lldp_debug_setup_stdout();
 
-	if (exitcode == -1)
-		exit(EXIT_SUCCESS);
-	else
-		return;
-	
+	return exitcode;
 }
 
 void thread_rx_sm(void *ptr)
@@ -311,7 +310,8 @@ int main(int argc, char **argv)
 	
 	program = argv[0];
 
-	parse_args(argc, argv);
+	if (parse_args(argc, argv) < 0)
+		exit(0);
 
 	get_sys_desc();
 	get_sys_fqdn();
