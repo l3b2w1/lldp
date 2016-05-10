@@ -230,10 +230,6 @@ void thread_rx_sm(void *ptr)
 						/* Mark that we received a frame so the rx state machine can process it. */
 						lldp_port->rx.rcvFrame = 1;
 						rxStatemachineRun(lldp_port);
-						neighbors_info = lldp_neighbor_info(lldp_ports);
-						//printf("neighbors: %s\n", neighbors_info);
-						//free(neighbors_info);
-						//neighbors_info = NULL;
 					}
 				}
 			} /* end result > 0 */

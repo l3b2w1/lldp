@@ -19,8 +19,7 @@ int get_sys_fqdn(void);
 int32_t get_wifi_mode();
 int32_t get_dev_role();
 
-char *lldp_neighbor_info(struct lldp_port *lldp_ports);
-char *lldp_neighbor_information(struct lldp_port *lldp_ports);
+char *lldp_neighbors_info(struct lldp_port *lldp_ports);
 
 extern int32_t dev_role;
 

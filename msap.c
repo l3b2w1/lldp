@@ -272,6 +272,7 @@ int gratuitous_arp_send(struct lldp_port *lldp_port)
 	return 0;
 }
 
+extern struct lldp_port *lldp_ports;
 struct lldp_msap* update_msap_cache(struct lldp_port *lldp_port, struct lldp_msap* msap_cache) {
 	struct lldp_msap *old_cache = lldp_port->msap_cache;
 	struct lldp_msap *new_cache = msap_cache;
@@ -306,6 +307,7 @@ struct lldp_msap* update_msap_cache(struct lldp_port *lldp_port, struct lldp_msa
 	new_cache->next = lldp_port->msap_cache;
 	lldp_port->msap_cache = new_cache;
 
+	lldp_neighbors_info(lldp_ports);
 	return new_cache;
 	/*warning We are leaking memory... need to dispose of the msap_cache under certain circumstances */
 }
