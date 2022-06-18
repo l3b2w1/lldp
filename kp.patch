@@ -1,0 +1,85 @@
+From bb630291e697bc671564d2f5ec09b7d1fb27d7af Mon Sep 17 00:00:00 2001
+From: l3b2w1 <l3b2w1@gmail.com>
+Date: Sat, 18 Jun 2022 14:45:18 +0800
+Subject: [PATCH] kprobes: check the parameter offset in _kprobe_addr()
+
+I encounter a problem when using kprobe.
+There is no checking about the parameter offset in _kprobe_address().
+
+a. execute command with a valid address, it succeed.
+echo 'p:km __kmalloc+4099' > kprobe_events
+In reality, __kmalloc+4099 points to free_debug_processing+579.
+
+so we end up with:
+p:kprobes/kp __kmalloc+4099
+
+b. execute command with an invalid address,
+   failing because of addr crossing instruction boundary
+echo 'p:km __kmalloc+4096' > kprobe_events
+In reality, __kmalloc+4096 points to free_debug_processing+576.
+
+Thus, if not checking the offset, it could point to anywhere,
+may succeed with a valid addr, or fail with an invalid addr.
+That's not what we want already.
+
+When registering a kprobe to debug something,
+either supplied with a symbol name through the sysfs trace
+interface,
+or programming kp.addr with a specific value in a module,
+that means the target function to be probed by us is determined.
+
+With or whitout an offset(0 or !0),
+it should be limited to be whithin the function body
+to avoid ending up with a different and unknown function.
+
+Maybe it's better to check it. Thank you to review this!
+
+Signed-off-by: l3b2w1 <l3b2w1@gmail.com>
+---
+ kernel/kprobes.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index f214f8c..d5b907a 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1449,6 +1449,9 @@ static kprobe_opcode_t *
+ _kprobe_addr(kprobe_opcode_t *addr, const char *symbol_name,
+ 	     unsigned long offset, bool *on_func_entry)
+ {
++	unsigned long addr_offset;
++	unsigned long symbol_size;
++
+ 	if ((symbol_name && addr) || (!symbol_name && !addr))
+ 		goto invalid;
+ 
+@@ -1465,14 +1468,20 @@ _kprobe_addr(kprobe_opcode_t *addr, const char *symbol_name,
+ 			return ERR_PTR(-ENOENT);
+ 	}
+ 
++	if (!kallsyms_lookup_size_offset((unsigned long)addr,
++				&symbol_size, &addr_offset))
++		return ERR_PTR(-ENOENT);
++
++	/* Guarantee probed addr do not step over more than one function */
++	if (offset >= symbol_size || offset >= symbol_size - addr_offset)
++		goto invalid;
++
+ 	/*
+-	 * So here we have @addr + @offset, displace it into a new
+-	 * @addr' + @offset' where @addr' is the symbol start address.
++	 * @addr is the symbol start address
++	 * @offset is the real 'offset' relative to start address
+ 	 */
+-	addr = (void *)addr + offset;
+-	if (!kallsyms_lookup_size_offset((unsigned long)addr, NULL, &offset))
+-		return ERR_PTR(-ENOENT);
+-	addr = (void *)addr - offset;
++	addr -= addr_offset;
++	offset += addr_offset;
+ 
+ 	/*
+ 	 * Then ask the architecture to re-combine them, taking care of
+-- 
+2.7.4
+
